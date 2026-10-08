@@ -8,6 +8,9 @@ physical 7-DoF actions inside the Benchmark and every physical step counts
 toward the same budget. A single Agent dialogue persists for the whole episode,
 including an optional failure-only continuation.
 
+For a clean-host, image-only procedure, see the
+[reproduction guide](libero-three-reproduction.md).
+
 ## Evaluation contracts
 
 | Benchmark | Full set | Migration subset | Official 1× | Primary score |
@@ -113,9 +116,10 @@ The Benchmark image has no model dependency or model credential. The portable
 Agent image embeds all three sealed ICL trees, the locked tokenizer, the three
 installed Agent bundles and their Python dependencies. Only the model endpoint
 and credential are injected at runtime. Agent and Benchmark may be deployed
-independently. The generated Benchmark manifests request one GPU for
-deterministic MuJoCo EGL rendering; no VLA/SAM3 model service is started or
-contacted by this condition.
+independently. No VLA/SAM3 model service is started or contacted by this
+condition. The generated Benchmark manifests request one GPU for accelerated,
+more consistent MuJoCo EGL rendering; local CPU software rendering was also
+verified, but is substantially slower.
 
 ## Build and lock Benchmark images
 
@@ -391,11 +395,12 @@ python scripts/libero_three/run.py \
   --dry-run
 ```
 
-Remove `--dry-run` to execute locally. The machine needs Docker, a GPU supported
-by the selected Benchmark image and access to the external model endpoint; it
-does not need AFS or an m-cluster checkout. On SenseCore, `--sco-config` creates
-Benchmark workers but is not combined with a local Docker Agent. Do not run
-MuJoCo, models, image builds, or long evaluations on a login node.
+Remove `--dry-run` to execute locally. The machine needs Docker and access to
+the external model endpoint; it does not need AFS or an m-cluster checkout. A
+GPU is recommended for full runs, while CPU software rendering is suitable for
+slower small validation runs. On SenseCore, `--sco-config` creates Benchmark
+workers but is not combined with a local Docker Agent. Do not run MuJoCo,
+models, image builds, or long evaluations on a login node.
 `--resume-from` reuses only completed non-retryable cases whose complete locked
 inputs match.
 
@@ -435,23 +440,29 @@ but is not the sole gate because model services can be nondeterministic.
 - Rebuild the image and regenerate its manifest after any adapter or scorer
   change. Source-digest verification rejects undeclared runtime files.
 
-The pullable ms-sc-01 images for revision `88182aa` are:
+The pullable ms-sc-01 images are:
 
 | Role | Immutable image |
 | --- | --- |
 | Shared Agent | `registry.example.com/roborsi/ms-ccr/heart-libero-three-agent@sha256:33e4f5bd9947a208e83cbbbdc6b70297b0ebeb16893839ac2fb42fc627a1253e` |
-| Long++ / Ultra-Long Benchmark | `registry.example.com/roborsi/ms-ccr/heart-libero-lilo@sha256:f6dade80d55fdbd0e6f2612f100b113b8682394c38df9aa4f1c038ca056522fd` |
+| Long++ / Ultra-Long Benchmark | `registry.example.com/roborsi/ms-ccr/heart-libero-lilo@sha256:4e795cf962ff4680f88a757d4edba901440374e0c797246fc960221ba7822f81` |
 | PRO Benchmark | `registry.example.com/roborsi/ms-ccr/heart-libero-pro@sha256:5fbf5694f17bd9500c1b495461e881464ecc29ebc26687d067b3c9a9a69606cf` |
 
 All three were pulled back successfully by digest. Generated migration
-manifests live outside Git at `../work/libero_three/registry-ms-ccr/`; their
+manifests live outside Git at `../work/libero_three/registry-ms-ccr-v2/`; their
 SHA-256 values are
-`dfdf42a7a3311980ff6527b22102fe4dd10770b4c6884572d96c67810cb65a59`
+`e63ffac8da2776fca25093acf344b9f7984f8ceb716089cb0c60832023ef5141`
 (Long++),
-`27b262826b2033c22979ba614b793104a90de948ea2906b4fde9c1104ab1788c`
+`fd19a5c394d7556c22d2921744fd2e43541c7558821a3d42ab837f4d4f524fe8`
 (Ultra-Long), and
 `9ca4dcfd0641fff9fe63727f9e74dc817258b87bbe7929e87b0972ecb8f5149a`
 (PRO).
+
+The exact LiLo digest above was additionally run with a read-only root on the
+local CPU software renderer. A Long++ no-op protocol probe reached its 600-step
+1x boundary and produced native score, trace and video; this validates the
+Benchmark execution path, not Agent task accuracy. Real-model scores are only
+the results reported in the delivery-results section.
 
 The locally verified unpacked sizes are about 4.85 GB for PRO, 3.98 GB for
 LiLo, and 1.57 GB for the combined Agent image. The Agent's sealed ICL plus

@@ -2,6 +2,8 @@
 
 本文说明三套 benchmark 的冻结评测约束、镜像交付、AFS 目录布局和源码运行方式。
 英文版见 [libero-three-benchmarks.md](libero-three-benchmarks.md)。
+干净机器上的镜像拉取、registry 生成和真实模型运行命令见
+[三套 LIBERO 评测复现文档](libero-three-reproduction.zh-CN.md)。
 
 ## 评测契约
 
@@ -72,8 +74,9 @@ token 约为 159k、231k、147k。内部 TokenHub 没有随交付提供可结算
 
 正式可移植模式使用三个 digest 固定的镜像：PRO Benchmark、Long++/Ultra 共用的 LiLo
 Benchmark，以及包含三套 Agent bundle、ICL、tokenizer 和 Python 依赖的 Agent 镜像。
-目标 GPU 机器不需要挂载 m 集群或 AFS；它只需要镜像、registry/manifest 配置、Docker、
-GPU 驱动、模型 endpoint 和运行时注入的凭证。模型权重、endpoint 和凭证都不进入镜像。
+目标机器不需要挂载 m 集群或 AFS；它只需要镜像、registry/manifest 配置、Docker、
+模型 endpoint 和运行时注入的凭证。完整评测推荐使用 GPU 加速 MuJoCo EGL 渲染；本机
+CPU 软件渲染也已验证可运行，但明显更慢。模型权重、endpoint 和凭证都不进入镜像。
 
 以下 AFS 布局仅用于源码复现和重新准备镜像输入：
 
@@ -329,20 +332,25 @@ snapshot 作为 `evaluation-assets/` 放入 PRO 构建上下文。Dockerfile 在
 评测文件。最终 PRO 镜像不再依赖 AFS、运行时资产挂载或在线下载；manifest 的
 `assets_version` 直接记录镜像内资产摘要。
 
-revision `88182aa` 对应的 ms-sc-01 可拉取镜像为：
+ms-sc-01 可拉取镜像为：
 
 | 角色 | 不可变镜像 |
 | --- | --- |
 | 三套评测共用 Agent | `registry.example.com/roborsi/ms-ccr/heart-libero-three-agent@sha256:33e4f5bd9947a208e83cbbbdc6b70297b0ebeb16893839ac2fb42fc627a1253e` |
-| Long++ / Ultra-Long Benchmark | `registry.example.com/roborsi/ms-ccr/heart-libero-lilo@sha256:f6dade80d55fdbd0e6f2612f100b113b8682394c38df9aa4f1c038ca056522fd` |
+| Long++ / Ultra-Long Benchmark | `registry.example.com/roborsi/ms-ccr/heart-libero-lilo@sha256:4e795cf962ff4680f88a757d4edba901440374e0c797246fc960221ba7822f81` |
 | PRO Benchmark | `registry.example.com/roborsi/ms-ccr/heart-libero-pro@sha256:5fbf5694f17bd9500c1b495461e881464ecc29ebc26687d067b3c9a9a69606cf` |
 
 三个镜像均已按 digest 拉取回验。三套 migration manifest 位于 Git 仓库外的
-`../work/libero_three/registry-ms-ccr/`，SHA-256 分别为 Long++
-`dfdf42a7a3311980ff6527b22102fe4dd10770b4c6884572d96c67810cb65a59`、
+`../work/libero_three/registry-ms-ccr-v2/`，SHA-256 分别为 Long++
+`e63ffac8da2776fca25093acf344b9f7984f8ceb716089cb0c60832023ef5141`、
 Ultra-Long
-`27b262826b2033c22979ba614b793104a90de948ea2906b4fde9c1104ab1788c`、
+`fd19a5c394d7556c22d2921744fd2e43541c7558821a3d42ab837f4d4f524fe8`、
 PRO `9ca4dcfd0641fff9fe63727f9e74dc817258b87bbe7929e87b0972ecb8f5149a`。
+
+上述 LiLo digest 还在本机 CPU 软件渲染、只读根文件系统下完成了 Long++ 原生协议探针：
+持续 no-op 动作到 600 步 1x 边界，并生成原生 score、trace 和视频。该结果只验证
+Benchmark 执行链路，不代表 Agent 任务准确率；Agent 成绩仅采用本文成绩章节中的真实
+模型结果。
 
 当前本机构建并校验的解压尺寸：
 
