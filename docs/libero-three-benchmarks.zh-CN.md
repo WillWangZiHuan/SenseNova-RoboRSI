@@ -256,19 +256,20 @@ python -m benchmarks.package --benchmark libero_lilo \
   --output ../work/libero_three/build-lilo
 python -m benchmarks.libero_pro.assets \
   --source /path/to/full-evaluation/libero/libero \
-  --output-dir ../work/libero_three/registry/libero_pro/assets
+  --output-dir ../work/libero_three/libero-pro-assets \
+  --build-context ../work/libero_three/build-pro
 ```
 
 构建上下文仍放在外部 `work/`。最终镜像必须以 digest 固定；镜像只含 benchmark 和
 模拟器，不能含 Agent SDK、模型凭证或对话状态。当前条件不需要 Pi0.5/SAM3。
 
-PRO manifest 必须通过 `--asset ../work/libero_three/registry/libero_pro/assets/asset.json`
-声明上述资产。准备器仅密封 `bddl_files/` 与 `init_files/`，固定目录 SHA-256 为
-`381f91eec4ec26bc2a0bd06e32da8713f56367c5431d7a8cfa74d69439b57be9`，约 18.2 MB；
-运行时以只读方式挂到 `/heart/assets/libero_pro`。两个镜像都会在可写 `/tmp` 中生成
-LIBERO 路径配置，避免只读容器启动时写源码目录，也避免 PRO 回退到不完整的内置评测文件。
-在构建后的镜像内生成 PRO manifest 时，也要把 registry 的 `libero_pro/` 目录读写挂载到
-同名路径，并把其中密封的 snapshot 只读挂载到 `/heart/assets/libero_pro`。
+准备器仅密封 `bddl_files/` 与 `init_files/`，固定目录 SHA-256 为
+`381f91eec4ec26bc2a0bd06e32da8713f56367c5431d7a8cfa74d69439b57be9`，并把核验后的
+snapshot 作为 `evaluation-assets/` 放入 PRO 构建上下文。Dockerfile 在提交镜像层前再次
+核对同一摘要，并将其固定在 `/opt/libero-pro-evaluation`。两个镜像都会在可写 `/tmp`
+中生成 LIBERO 路径配置，避免只读容器启动时写源码目录，也避免 PRO 回退到不完整的内置
+评测文件。最终 PRO 镜像不再依赖 AFS、运行时资产挂载或在线下载；manifest 的
+`assets_version` 直接记录镜像内资产摘要。
 
 当前没有可拉取的最终镜像地址和 digest，因此“已构建 Benchmark 镜像”是本交付唯一明确
 未完成项。Dockerfile、固定基础镜像 digest、上游 commit、构建上下文导出器和 manifest

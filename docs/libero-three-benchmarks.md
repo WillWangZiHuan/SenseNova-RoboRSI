@@ -125,7 +125,8 @@ python -m benchmarks.package --benchmark libero_lilo \
   --output ../work/libero_three/build-lilo
 python -m benchmarks.libero_pro.assets \
   --source /path/to/full-evaluation/libero/libero \
-  --output-dir ../work/libero_three/registry/libero_pro/assets
+  --output-dir ../work/libero_three/libero-pro-assets \
+  --build-context ../work/libero_three/build-pro
 ```
 
 Build and push both contexts, retain their `repository@sha256:digest` values,
@@ -134,7 +135,6 @@ then run these commands inside the corresponding image:
 ```bash
 python -m benchmarks.libero_pro.manifest \
   --image REGISTRY/heart-libero-pro@sha256:DIGEST \
-  --asset /output/libero_pro/assets/asset.json \
   --profile migration_subset \
   --output /output/libero_pro/manifest.json
 
@@ -152,12 +152,12 @@ python -m benchmarks.libero_lilo.manifest \
 The PRO asset command seals only `bddl_files/` and `init_files/`, requires the
 full-evaluation directory SHA-256
 `381f91eec4ec26bc2a0bd06e32da8713f56367c5431d7a8cfa74d69439b57be9`,
-and produces an approximately 18.2 MB read-only Registry snapshot mounted at
-`/heart/assets/libero_pro`. Both images materialize LIBERO's mutable path file
+and stages the verified snapshot as `evaluation-assets/` in the PRO build
+context. The Dockerfile verifies the same digest and embeds it at
+`/opt/libero-pro-evaluation`. Both images materialize LIBERO's mutable path file
 under `/tmp`; PRO therefore cannot silently fall back to incomplete checkout
-evaluation files. When generating the PRO manifest inside the built image,
-mount the registry's `libero_pro/` directory read-write at the same path and its
-sealed snapshot read-only at `/heart/assets/libero_pro`.
+evaluation files, and the final image has no AFS or runtime asset-mount
+dependency.
 
 Omit `--profile migration_subset` for the official full set. Add
 `--plus9-on-failure` only for a separately named cumulative diagnostic. Never
