@@ -276,6 +276,7 @@ python scripts/libero_three/run.py \
   --agent-config bundle:libero_long_plus_plus_v13 \
   --agent-image REGISTRY/heart-libero-three-agent@sha256:DIGEST \
   --agent-credential-env OPENAI_API_KEY \
+  --agent-credential-env OPENAI_BASE_URL \
   --results-root ../work/libero_three/results \
   --run-id longpp-v13-icl --dry-run
 ```
@@ -328,7 +329,22 @@ snapshot 作为 `evaluation-assets/` 放入 PRO 构建上下文。Dockerfile 在
 评测文件。最终 PRO 镜像不再依赖 AFS、运行时资产挂载或在线下载；manifest 的
 `assets_version` 直接记录镜像内资产摘要。
 
-最终 sh01 镜像地址和 registry digest 在发布后回填到本文。当前本机构建并校验的解压尺寸：
+revision `88182aa` 对应的 ms-sc-01 可拉取镜像为：
+
+| 角色 | 不可变镜像 |
+| --- | --- |
+| 三套评测共用 Agent | `registry.example.com/roborsi/ms-ccr/heart-libero-three-agent@sha256:33e4f5bd9947a208e83cbbbdc6b70297b0ebeb16893839ac2fb42fc627a1253e` |
+| Long++ / Ultra-Long Benchmark | `registry.example.com/roborsi/ms-ccr/heart-libero-lilo@sha256:f6dade80d55fdbd0e6f2612f100b113b8682394c38df9aa4f1c038ca056522fd` |
+| PRO Benchmark | `registry.example.com/roborsi/ms-ccr/heart-libero-pro@sha256:5fbf5694f17bd9500c1b495461e881464ecc29ebc26687d067b3c9a9a69606cf` |
+
+三个镜像均已按 digest 拉取回验。三套 migration manifest 位于 Git 仓库外的
+`../work/libero_three/registry-ms-ccr/`，SHA-256 分别为 Long++
+`dfdf42a7a3311980ff6527b22102fe4dd10770b4c6884572d96c67810cb65a59`、
+Ultra-Long
+`27b262826b2033c22979ba614b793104a90de948ea2906b4fde9c1104ab1788c`、
+PRO `9ca4dcfd0641fff9fe63727f9e74dc817258b87bbe7929e87b0972ecb8f5149a`。
+
+当前本机构建并校验的解压尺寸：
 
 | 镜像 | 本地解压尺寸 |
 | --- | ---: |
@@ -337,7 +353,6 @@ snapshot 作为 `evaluation-assets/` 放入 PRO 构建上下文。Dockerfile 在
 | `heart-libero-three-agent` | 约 1.57 GB |
 
 当前条件不需要历史 Pi0.5/SAM3 权重（原始合计约 10.9 GB），不要把它们打进镜像。
-registry 压缩传输量和最终 digest 以 push 后的 manifest 为准。
 
 ## 安全规则
 

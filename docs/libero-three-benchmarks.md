@@ -383,6 +383,7 @@ python scripts/libero_three/run.py \
   --agent-config bundle:libero_long_plus_plus_v13 \
   --agent-image REGISTRY/heart-libero-three-agent@sha256:DIGEST \
   --agent-credential-env OPENAI_API_KEY \
+  --agent-credential-env OPENAI_BASE_URL \
   --results-root ../work/libero_three/results \
   --run-id longpp-v13-icl \
   --agent-set parameters.enable_vla=false \
@@ -434,10 +435,27 @@ but is not the sole gate because model services can be nondeterministic.
 - Rebuild the image and regenerate its manifest after any adapter or scorer
   change. Source-digest verification rejects undeclared runtime files.
 
-The final pullable sh01 image references and registry digests are recorded here
-after publication. The locally verified unpacked sizes are about 4.85 GB for
-`heart-libero-pro`, 3.98 GB for `heart-libero-lilo`, and 1.57 GB for the combined
-Agent image. The Agent's sealed ICL plus tokenizer build input is about 49 MiB;
-most of its image size is the locked Python/Agent CLI runtime. The current
-condition does not require Pi0.5 or SAM3, so their historical checkpoints
-(about 10.9 GB raw in total) are deliberately absent.
+The pullable ms-sc-01 images for revision `88182aa` are:
+
+| Role | Immutable image |
+| --- | --- |
+| Shared Agent | `registry.example.com/roborsi/ms-ccr/heart-libero-three-agent@sha256:33e4f5bd9947a208e83cbbbdc6b70297b0ebeb16893839ac2fb42fc627a1253e` |
+| Long++ / Ultra-Long Benchmark | `registry.example.com/roborsi/ms-ccr/heart-libero-lilo@sha256:f6dade80d55fdbd0e6f2612f100b113b8682394c38df9aa4f1c038ca056522fd` |
+| PRO Benchmark | `registry.example.com/roborsi/ms-ccr/heart-libero-pro@sha256:5fbf5694f17bd9500c1b495461e881464ecc29ebc26687d067b3c9a9a69606cf` |
+
+All three were pulled back successfully by digest. Generated migration
+manifests live outside Git at `../work/libero_three/registry-ms-ccr/`; their
+SHA-256 values are
+`dfdf42a7a3311980ff6527b22102fe4dd10770b4c6884572d96c67810cb65a59`
+(Long++),
+`27b262826b2033c22979ba614b793104a90de948ea2906b4fde9c1104ab1788c`
+(Ultra-Long), and
+`9ca4dcfd0641fff9fe63727f9e74dc817258b87bbe7929e87b0972ecb8f5149a`
+(PRO).
+
+The locally verified unpacked sizes are about 4.85 GB for PRO, 3.98 GB for
+LiLo, and 1.57 GB for the combined Agent image. The Agent's sealed ICL plus
+tokenizer build input is about 49 MiB; most of its image size is the locked
+Python/Agent CLI runtime. The current condition does not require Pi0.5 or SAM3,
+so their historical checkpoints (about 10.9 GB raw in total) are deliberately
+absent.
