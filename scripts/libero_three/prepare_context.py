@@ -40,6 +40,14 @@ def _sources(root: Path, benchmark: str) -> dict[str, Path]:
     raise ValueError(f"unsupported benchmark: {benchmark}")
 
 
+def _destination_name(benchmark: str, task_id: str, package: ContextPackage) -> str:
+    if benchmark != "libero_pro":
+        return package.package_id
+    suite, task, _init_state = task_id.rsplit("-", 2)
+    family = suite.removeprefix("libero_").removesuffix("_task").removesuffix("_swap")
+    return f"libero-pro-context-{family}-{task}"
+
+
 def prepare(source: Path, destination: Path, benchmark: str) -> None:
     """Verify and copy the packages consumed by a repository Agent preset."""
     source = source.resolve()
@@ -55,7 +63,7 @@ def prepare(source: Path, destination: Path, benchmark: str) -> None:
             package = ContextPackage.load(package_path)
             relative = copied.get(package_path)
             if relative is None:
-                relative = package.package_id
+                relative = _destination_name(benchmark, task_id, package)
                 target = packages / relative
                 shutil.copytree(package_path, target, copy_function=shutil.copy2)
                 copied[package_path] = relative

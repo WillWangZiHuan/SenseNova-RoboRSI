@@ -31,29 +31,26 @@ primitive 明确标注语义；特别是 `rotate_wrist` 表示保持末端位置
 `move_pose.target_yaw` 替代。该兼容层只恢复旧工具契约，不改变任务、评分器、初始化或
 物理步数预算。
 
-历史报告中的版本对应关系需要特别区分：Long++ 和 Ultra-Long 子集使用 v13 的
-no-tool、token-accurate 条件；PRO v21 全量 800 例是在十个初态上展开 v18 persistent
-memory 策略，其可比的 80 例代表子集是固定 state 2 的 v18。当前仓库提供的 PRO
-preset/package 复现的是后续 v19 safe-carry、固定 state 3，因此当前 PRO 数字不能直接
-作为 v21 的子集对照。
+Long++ 和 Ultra-Long 子集使用 v13 的 no-tool、token-accurate 条件。PRO 使用全量 800
+例参考实验的 persistent-memory ICL，并对齐 no-VLA/no-SAM3 工具面、max 推理强度、
+上下文策略、轮数预算和重试策略。本仓库仍评测固定 state 3 的 80 例迁移子集，因此虽然
+Agent 条件已经对齐，测试范围仍不同于全量参考。
 
 ## 交付状态与实测证据
 
 以下均使用真实模型和模拟器，并遵守官方 1× 步数边界，没有启用
-`plus9_on_failure`。Long++ 和 PRO 的“诊断聚合”包含后续同条件严格 1× 重试，不能写成
-单次完整 pass；Ultra-Long 是一轮同配置并行分片的干净完整 pass。
+`plus9_on_failure`。Long++ 和 Ultra-Long 与当前 no-tool/max preset 一致。相同 Agent
+条件下的 PRO 全量参考为 786/800（98.25%）；固定 state 3 的 80 例迁移子集尚未按该条件
+重测，因此这里不报告其分数。
 
 | Benchmark / 条件 | 实际例数 | success | 平均原生分数 | 内部证据（相对 `../work/libero_three/`） |
 | --- | ---: | ---: | ---: | --- |
 | Long++ v13，state 1，首轮 | 12 × 1 | 9/12 | 0.9375 | `source-repro-v3/libero_long_plus_plus/summary.json` |
 | Long++ v13，诊断聚合 | 12 × 1 | 12/12 | 1.0000 | `source-longpp-best-valid-v1/summary.json` |
 | Ultra-Long v13，state 1，干净 pass | 9 × 1 | 8/9 | 0.9583 | `source-v13-compat-geom-full-r3/summary.json` |
-| PRO v19，state 3，首轮 | 80 × 1 | 72/80 | 0.9000 | `source-pro-combined-v1/summary.json` |
-| PRO v19，诊断聚合 | 80 × 1 | 76/80 | 0.9500 | `source-pro-best-valid-v1/summary.json` |
 
-冻结的内部对照为 Long++ v13 12/12、Ultra-Long v13 8/9、PRO v19 state-3
-75/80。PRO v21 的 756/800 属于 v18 persistent-memory 策略延续，代表子集是 state 2，
-与本交付的 v19/state-3 条件不同。上游 [LiLo-VLA](https://github.com/YY-GX/LiLo-VLA)、
+冻结的子集对照为 Long++ v13 12/12、Ultra-Long v13 8/9。上述 PRO 数字是全量参考，
+不是本仓库 80 例子集的结果。上游 [LiLo-VLA](https://github.com/YY-GX/LiLo-VLA)、
 [LIBERO](https://github.com/Lifelong-Robot-Learning/LIBERO) 和
 [LIBERO-PRO](https://github.com/RLinf/LIBERO-PRO) 没有公开与这三个固定迁移子集、Agent
 和预算完全相同的成绩，因此不补猜其他方法数值，也不做跨条件排名。
@@ -96,9 +93,7 @@ newrpent/
 - Long++、Ultra-Long、PRO 三套密封 ICL package 根目录；
 - LiLo-VLA、LIBERO、LIBERO-PRO 的固定源码树及各自 Python 环境；
 - LIBERO assets、BDDL、init states，以及需要时才使用的 datasets；
-- Pi0.5 checkpoint、SAM3 checkpoint、上下文 tokenizer，以及 OpenPI 使用的固定
-  PaliGemma tokenizer/cache 根目录；
-- PRO 使用的 Pi0.5/SAM3 RPC 地址，以及通用 MCP 地址字段；
+- 三套上下文引擎共同使用的固定 tokenizer；
 - 每套 benchmark 的固定 revision 和运行环境变量。
 
 公开模板是 `configs/libero_three/source-runtime.example.json`，逻辑资产锁是
@@ -109,7 +104,7 @@ venv 的入口明确解析到 `/usr/bin/python3.10`，所以仅挂载 AFS 但缺
 不能直接运行 Long++/Ultra-Long。
 
 标准 Agent 入口位于 `configs/agents/libero_three/`。Long++ 和 Ultra-Long 通过
-`v13.yaml` 继承共同的 no-tool、token-accurate 配置；PRO 使用 `pro_v19.yaml`。
+`v13.yaml` 继承共同的 no-tool、token-accurate 配置；PRO 使用 `pro.yaml`。
 `base.yaml` 和 `v13.yaml` 只用于继承，不能直接作为评测 preset。
 
 PRO 的 `pythonpath` 必须指向固定 revision 的 LIBERO-PRO checkout 根目录，不能指向旧的
@@ -121,24 +116,19 @@ checkout 没有 `liberopro/datasets/` 是正常的。发布源码中的个别 pr
 BDDL 都会在分配模拟器前失败。Ubuntu 基础环境需提供 `python3.10`、`libgl1`、
 `libegl1` 和 `libglib2.0-0`。
 
-这些系统依赖同时明确列在配置的 `system_packages` 中。`openpi_data_home` 必须预先包含
-`big_vision/paligemma_tokenizer.model`；预检会校验固定大小与哈希，使 Pi0.5 启动不再
-依赖从 GCS 临时下载。
+这些系统依赖同时明确列在配置的 `system_packages` 中。预检会校验三套配置使用的
+tokenizer 哈希；当前三套条件都不需要模型 checkpoint。
 
 ## 当前三套依赖策略
 
-- Long++ 与 Ultra-Long 复现历史 v13 条件：主机配置中显式关闭 VLA 和 SAM3；使用
-  LiLo 官方 Python 3.10 仿真环境。
-- PRO 复现 v19 tool contract：必须提供 Pi0.5 与 SAM3。模型服务和 PRO native runner 使用
-  配置指定的兼容 Python/wrapper，PRO checkout 只通过该进程的 `PYTHONPATH` 注入，避免把
-  另一套 site-packages 混入并污染 Torch 版本。
-- PRO 通过仓库现有 native LIBERO toolkit 暴露 `back_project`、`pi0_pick` 等历史工具；
-  Long++/Ultra-Long 走独立 Benchmark HTTP 服务和 action/feedback primitive 协议。
-- Agent preset 对 transient transport/5xx 使用最多三次有界重试；PRO reasoning 为 low，
-  Long++/Ultra-Long 为 max，并开启 Responses prompt caching。
-- Long++/Ultra-Long 还固定复现 v13 的 token-accurate 上下文策略：1,050,000 token
-  窗口、128,000 输出预留、32,768 工具/协议预留、0.75 摘要触发比例、至少保留最近
-  8 个完整工具往返和 2 组图像。`run_source.py` 从主机配置注入本地 tokenizer 及锁定
+- 三套 preset 均为 `reasoning_effort=max`，并显式关闭 VLA 和 SAM3。
+- 三套评测均走独立 Benchmark HTTP 服务和同一个 `heart_action` action/feedback primitive
+  协议；不会启动或连接 Pi0.5/SAM3 服务。
+- 三套均开启 Responses prompt caching；PRO 关闭模型重试以匹配全量参考，另外两套对
+  transient transport/5xx 保留最多三次有界重试。
+- 三套都使用 token-accurate 上下文策略：1,050,000 token 窗口、128,000 输出预留、
+  32,768 工具/协议预留、0.75 摘要触发比例、至少保留最近 8 个完整工具往返和 2 组图像。
+  `run_source.py` 从主机配置注入本地 tokenizer 及锁定
   SHA-256；在触发线以下完整保留文本历史，不能用固定 recent-turn 截断替代。
 
 ## 准备并校验 ICL
@@ -159,7 +149,7 @@ python scripts/libero_three/prepare_context.py \
 
 python scripts/libero_three/prepare_context.py \
   --benchmark libero_pro \
-  --source /path/to/pro_safe_carry_v19 \
+  --source /path/to/pro_persistent_memory \
   --destination ../work/libero_three/pro-icl
 ```
 
@@ -173,10 +163,10 @@ python scripts/libero_three/check_source_runtime.py \
   --probe-python
 ```
 
-该命令检查三套 Python、源码与资产目录、密钥非空、checkpoint 大小/哈希、tokenizer
-哈希、全部 ICL manifest/package 哈希、12/9/80 映射数量、Agent config fingerprint、
-工具 URL，并实际探测每套 Python 的关键导入、PRO 80 个选定初态和 BDDL。任一外部依赖
-缺失会在启动评测前失败。
+该命令检查三套 Python、源码与资产目录、密钥非空、tokenizer 哈希、全部 ICL
+manifest/package 哈希、12/9/80 映射数量、Agent config fingerprint 和统一的 no-tool/max
+约束，并实际探测每套 Python 的关键导入、PRO 80 个选定初态和 BDDL。任一外部依赖缺失
+会在启动评测前失败。
 
 ## Agent wheel 导出与仓库外安装
 
@@ -224,11 +214,9 @@ python scripts/libero_three/run_source_subset.py \
 
 将 `--benchmark` 换成 `libero_ultra_long` 或 `libero_pro` 即可。仓库 context map 是
 权威案例列表，分别固定为 12、9、80。重复传 `--task` 可只跑 smoke，不需要另建任务列表。
-子集 runner 会自动为 PRO 选择 native toolkit runner，为另外两套选择 Benchmark service；
-每个案例保留独立日志，根目录生成含成功率和平均原生分数的 `summary.json`。PRO 配置将
-`manage_local_services` 设为 `true` 时，runner 会自动启停 `vla_rpc_url` 和
-`sam3_rpc_url` 对应的本地 Pi0.5/SAM3 服务；只有使用外部托管服务时才设为 `false`。两份
-checkpoint 路径也由同一配置声明，不存在代码内隐藏路径。
+三套都使用同一个 Benchmark service + canonical Agent runner；每个案例保留独立日志，
+根目录生成含成功率和平均原生分数的 `summary.json`。预检和 runner 都会拒绝打开 VLA、
+SAM3 或本地模型服务的主机配置。
 
 标准 registry/镜像入口使用以下叶子 preset：
 
@@ -236,7 +224,7 @@ checkpoint 路径也由同一配置声明，不存在代码内隐藏路径。
 | --- | --- |
 | Long++ | `configs/agents/libero_three/long_plus_plus_v13.yaml` |
 | Ultra-Long | `configs/agents/libero_three/ultra_long_v13.yaml` |
-| PRO | `configs/agents/libero_three/pro_v19.yaml` |
+| PRO | `configs/agents/libero_three/pro.yaml` |
 
 只有 `success` 与原生 `task_failure` 是合法评测终态。Agent error、基础设施错误、缺少
 `result.json` 或重复结果都会使命令失败。Smoke 的目标是验证链路，因此得到带完整证据的
@@ -272,8 +260,7 @@ python -m benchmarks.libero_pro.assets \
 ```
 
 构建上下文仍放在外部 `work/`。最终镜像必须以 digest 固定；镜像只含 benchmark 和
-模拟器，不能含 Agent SDK、模型凭证或对话状态。Pi0.5/SAM3 属于 Agent/模型服务边界，
-不放进 Benchmark 镜像。
+模拟器，不能含 Agent SDK、模型凭证或对话状态。当前条件不需要 Pi0.5/SAM3。
 
 PRO manifest 必须通过 `--asset ../work/libero_three/registry/libero_pro/assets/asset.json`
 声明上述资产。准备器仅密封 `bddl_files/` 与 `init_files/`，固定目录 SHA-256 为
@@ -300,9 +287,8 @@ SciPy、基础 Python 和系统库，预计：
 | 两个镜像合计 | 5.4–7.0 GiB | 2.7–4.2 GiB |
 
 建议目标机给最终镜像预留至少 8 GiB，构建机给 build cache 和中间层预留 15–20 GiB。
-Pi0.5 的 7.47 GB 权重、SAM3 的 3.45 GB 权重、ICL 和模型服务 Python 环境不属于
-Benchmark 镜像；若错误地把两个 checkpoint 打入镜像，仅原始权重就会额外增加约
-10.9 GB。最终数值必须在构建机上用 `docker image inspect` 和 registry manifest 实测。
+当前条件不需要历史 Pi0.5/SAM3 权重（原始合计约 10.9 GB），不要把它们打进镜像。
+最终数值必须在构建机上用 `docker image inspect` 和 registry manifest 实测。
 
 ## 安全规则
 

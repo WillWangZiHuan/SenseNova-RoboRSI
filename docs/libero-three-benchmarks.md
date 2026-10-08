@@ -45,34 +45,31 @@ in particular, `rotate_wrist` rotates in place and is not interchangeable with
 `move_pose.target_yaw`. This compatibility layer does not change tasks, scoring,
 initialization, or physical-step budgets.
 
-The historical comparison labels are easy to confuse: the Long++ and
-Ultra-Long subset reported with the full study is the v13 no-tool,
-token-accurate condition. The v21 PRO full-800 run extends the v18 persistent
-memory policy across states 0--9; its representative 80-case subset is v18 at
-fixed state 2. The currently supplied PRO preset/packages reproduce the later
-v19 safe-carry subset at fixed state 3, so those PRO numbers are not a direct
-subset comparison for v21.
+The Long++ and Ultra-Long subset reported with the full study uses the v13
+no-tool, token-accurate condition. PRO uses the persistent-memory ICL from its
+full 800-case reference, with the same no-VLA/no-SAM3 tool surface, max
+reasoning, context policy, turn budget and retry policy. This repository runs
+the fixed-state-3 80-case migration subset, so its sample range remains
+different from the full reference even though the Agent condition is aligned.
 
 ## Delivery results and evidence
 
 All rows below used the real model and simulator at the official 1x boundary,
-without `plus9_on_failure`. The Long++ and PRO diagnostic aggregates combine
-later valid strict-1x retries with the first pass and are not single clean
-passes. Ultra-Long is one complete same-condition pass assembled from parallel
-shards.
+without `plus9_on_failure`. Long++ and Ultra-Long match the current no-tool/max
+preset. The aligned PRO full reference completed 786/800 cases (98.25%); the
+fixed-state-3 80-case migration subset has not yet been rerun under this exact
+condition and therefore has no reported score here.
 
 | Benchmark / condition | Cases | Success | Mean native score | Internal evidence below `../work/libero_three/` |
 | --- | ---: | ---: | ---: | --- |
 | Long++ v13, state 1, first pass | 12 x 1 | 9/12 | 0.9375 | `source-repro-v3/libero_long_plus_plus/summary.json` |
 | Long++ v13, diagnostic aggregate | 12 x 1 | 12/12 | 1.0000 | `source-longpp-best-valid-v1/summary.json` |
 | Ultra-Long v13, state 1, clean pass | 9 x 1 | 8/9 | 0.9583 | `source-v13-compat-geom-full-r3/summary.json` |
-| PRO v19, state 3, first pass | 80 x 1 | 72/80 | 0.9000 | `source-pro-combined-v1/summary.json` |
-| PRO v19, diagnostic aggregate | 80 x 1 | 76/80 | 0.9500 | `source-pro-best-valid-v1/summary.json` |
 
-The frozen internal references are 12/12 Long++, 8/9 Ultra-Long and 75/80 PRO
-v19 at state 3. PRO v21's 756/800 follows the v18 persistent-memory policy and
-uses state 2 for its representative subset, so it is not directly comparable
-to this v19/state-3 delivery. The upstream [LiLo-VLA](https://github.com/YY-GX/LiLo-VLA),
+The frozen subset references are 12/12 Long++ and 8/9 Ultra-Long. The aligned
+PRO number above is a full-set reference, not a result for this repository's
+80-case subset. The
+upstream [LiLo-VLA](https://github.com/YY-GX/LiLo-VLA),
 [LIBERO](https://github.com/Lifelong-Robot-Learning/LIBERO), and
 [LIBERO-PRO](https://github.com/RLinf/LIBERO-PRO) projects do not publish scores
 under this exact subset, Agent and budget combination; no unmatched public
@@ -108,16 +105,14 @@ An evaluation requires:
    SHA-256 inventory and a `payload/`; undeclared files and links are rejected.
 5. An OpenAI-compatible endpoint and a key file named only by the private host
    runtime config. Credentials are never stored in a repository config.
-6. For PRO v19, Pi0.5 and SAM3 checkpoints, the pinned PaliGemma tokenizer
-   under `OPENPI_DATA_HOME`, plus the model RPC endpoints. The
-   historical Long++/Ultra-Long v13 condition disables both tools in the host
-   config. MCP endpoint fields remain available for generic Agent-owned tools.
+6. The locked local tokenizer used by all three context engines.
+   Pi0.5, SAM3, PaliGemma and model RPC/MCP endpoints are not dependencies of
+   this three-benchmark condition.
 
 The Benchmark image has no model dependency or model credential. The Agent and
-Benchmark may be deployed independently. VLA/SAM3 are Agent-owned MCP services;
-their URLs are runtime environment values and are not recorded as secrets.
-The generated manifests request one GPU for deterministic MuJoCo EGL rendering;
-the model services do not share or inherit that device allocation.
+Benchmark may be deployed independently. The generated manifests request one
+GPU for deterministic MuJoCo EGL rendering; no VLA/SAM3 model service is
+started or contacted by this condition.
 
 ## Build and lock Benchmark images
 
@@ -189,29 +184,28 @@ python scripts/libero_three/prepare_context.py \
 
 python scripts/libero_three/prepare_context.py \
   --benchmark libero_pro \
-  --source /path/to/pro_safe_carry_v19 \
+  --source /path/to/pro_persistent_memory \
   --destination ../work/libero_three/pro-icl
 ```
 
 Set `HEART_LIBERO_LONGPP_ICL_ROOT`, `HEART_LIBERO_ULTRA_ICL_ROOT`, and
 `HEART_LIBERO_PRO_ICL_ROOT` to the corresponding external `packages/`
-directories. The repository presets use low reasoning effort for PRO and max
-for Long++/Ultra-Long, plus explicit Responses prompt caching and three bounded
-retries for transient transport/5xx failures. Presets are tool-capable; the
-host config explicitly disables VLA and SAM3 for the historical
-Long++/Ultra-Long v13 condition.
+directories. All three repository presets use max reasoning effort, explicitly
+disable VLA and SAM3, and enable Responses prompt caching. PRO disables model
+retries to match its full reference; the ordered benchmarks retain three
+bounded retries for transient transport/5xx failures.
 
-The Long++/Ultra-Long presets also reproduce v13's token-accurate context
-policy: a 1,050,000-token window, 128,000-token output reserve, 32,768-token
-overhead reserve, 0.75 summary trigger, eight complete recent exchanges and two
-image groups. `run_source.py` injects the host-configured local tokenizer and
-its locked SHA-256. Text history remains complete below the trigger; this is
-not equivalent to a fixed recent-turn truncation.
+All three presets use the token-accurate context policy: a 1,050,000-token
+window, 128,000-token output reserve, 32,768-token overhead reserve, 0.75
+summary trigger, eight complete recent exchanges and two image groups.
+`run_source.py` injects the host-configured local tokenizer and its locked
+SHA-256. Text history remains complete below the trigger; this is not
+equivalent to a fixed recent-turn truncation.
 
 The supported leaf presets are
 `configs/agents/libero_three/long_plus_plus_v13.yaml`,
 `configs/agents/libero_three/ultra_long_v13.yaml`, and
-`configs/agents/libero_three/pro_v19.yaml`. `base.yaml` and `v13.yaml` are
+`configs/agents/libero_three/pro.yaml`. `base.yaml` and `v13.yaml` are
 inheritance-only parents.
 
 Export and install a relocatable Agent bundle, for example:
@@ -233,8 +227,8 @@ selected through the preset's named environment variable.
 
 Copy `configs/libero_three/source-runtime.example.json` outside the checkout and
 fill in machine-visible paths. A complete private host config names the Agent
-Python/wrapper, model endpoint and key file, three ICL roots, tool MCP URLs, and
-the Benchmark Python/source/assets for each family. The public logical asset
+Python/wrapper, model endpoint and key file, three ICL roots, the locked context
+tokenizer, and the Benchmark Python/source/assets for each family. The public logical asset
 contract is `configs/libero_three/assets.lock.json`; absolute AFS paths and
 secrets deliberately stay in the private host config.
 
@@ -269,13 +263,11 @@ interpreter. The configured environments or wrappers carry the Python package
 dependencies.
 
 `system_packages` records `python3.10` and those host/container libraries
-explicitly. The
-configured `openpi_data_home` must already contain
-`big_vision/paligemma_tokenizer.model`; preflight checks its locked size and
-digest so Pi0.5 startup never depends on downloading it from GCS.
+explicitly. `runtime_assets.context_tokenizer` is required only by Long++ and
+Ultra-Long and is verified by SHA-256. No model checkpoint is required.
 
-Audit every referenced source tree, Python, ICL manifest, checkpoint, tokenizer,
-key file, selected PRO initial state and BDDL before running:
+Audit every referenced source tree, Python, ICL manifest, tokenizer, key file,
+selected PRO initial state and BDDL before running:
 
 ```bash
 python scripts/libero_three/check_source_runtime.py \
@@ -313,16 +305,9 @@ The repository context map is the authoritative case list (12 Long++, 9
 Ultra-Long or 80 PRO). Repeating `--task` selects smoke cases without creating a
 second task-list config. The subset runner keeps per-case logs and writes one
 `summary.json` with success rate and mean native score; any invalid terminal
-makes the command fail. It automatically
-uses the standalone Benchmark service for Long++/Ultra-Long and the repository's
-native LIBERO toolkit with shared Pi0.5/SAM3 RPC services for the frozen PRO v19
-tool contract.
-
-For PRO, set `manage_local_services` to `true` to let the subset runner start
-and stop the local Pi0.5/SAM3 services named by `vla_rpc_url` and
-`sam3_rpc_url`. Set it to `false` only when those endpoints are managed
-externally. Both checkpoints are named by the same host config; no checkpoint
-path is hidden in repository code.
+makes the command fail. It uses the same standalone Benchmark service and
+canonical `heart_action` Agent path for all three benchmarks. Preflight and the
+runner reject host configs that enable VLA, SAM3 or local model services.
 
 ## One-command preflight and evaluation
 
@@ -394,7 +379,7 @@ assets. With CPU Torch, MuJoCo, SciPy, Python and system libraries, expect about
 2.4--3.0 GiB unpacked / 1.2--1.8 GiB compressed for `libero_lilo`, and
 3.0--4.0 GiB unpacked / 1.5--2.4 GiB compressed for `libero_pro`. Budget at
 least 8 GiB to hold both final images and 15--20 GiB on the builder for cache
-and intermediate layers. Pi0.5 (7.47 GB) and SAM3 (3.45 GB) checkpoints are
-outside the Benchmark images; embedding them would add about 10.9 GB of raw
-weights alone. Confirm final values with image inspection and the registry
+and intermediate layers. The current condition does not require Pi0.5 or SAM3;
+the historical checkpoints (about 10.9 GB raw in total) should not be copied
+into either image. Confirm final values with image inspection and the registry
 manifest after the actual build.
