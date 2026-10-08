@@ -7,10 +7,15 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import sys
 from pathlib import Path
 
-from heart_runtime.agents.context_package import ContextPackage
-from heart_runtime.evaluation.result import write_json_atomic
+_REPOSITORY = Path(__file__).resolve().parents[2]
+if str(_REPOSITORY) not in sys.path:
+    sys.path.insert(0, str(_REPOSITORY))
+
+from heart_runtime.agents.context_package import ContextPackage  # noqa: E402
+from heart_runtime.evaluation.result import write_json_atomic  # noqa: E402
 
 
 def _sources(root: Path, benchmark: str) -> dict[str, Path]:

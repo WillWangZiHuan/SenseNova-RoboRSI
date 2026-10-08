@@ -53,6 +53,48 @@ fixed state 2. The currently supplied PRO preset/packages reproduce the later
 v19 safe-carry subset at fixed state 3, so those PRO numbers are not a direct
 subset comparison for v21.
 
+## Delivery results and evidence
+
+All rows below used the real model and simulator at the official 1x boundary,
+without `plus9_on_failure`. The Long++ and PRO diagnostic aggregates combine
+later valid strict-1x retries with the first pass and are not single clean
+passes. Ultra-Long is one complete same-condition pass assembled from parallel
+shards.
+
+| Benchmark / condition | Cases | Success | Mean native score | Internal evidence below `../work/libero_three/` |
+| --- | ---: | ---: | ---: | --- |
+| Long++ v13, state 1, first pass | 12 x 1 | 9/12 | 0.9375 | `source-repro-v3/libero_long_plus_plus/summary.json` |
+| Long++ v13, diagnostic aggregate | 12 x 1 | 12/12 | 1.0000 | `source-longpp-best-valid-v1/summary.json` |
+| Ultra-Long v13, state 1, clean pass | 9 x 1 | 8/9 | 0.9583 | `source-v13-compat-geom-full-r3/summary.json` |
+| PRO v19, state 3, first pass | 80 x 1 | 72/80 | 0.9000 | `source-pro-combined-v1/summary.json` |
+| PRO v19, diagnostic aggregate | 80 x 1 | 76/80 | 0.9500 | `source-pro-best-valid-v1/summary.json` |
+
+The frozen internal references are 12/12 Long++, 8/9 Ultra-Long and 75/80 PRO
+v19 at state 3. PRO v21's 756/800 follows the v18 persistent-memory policy and
+uses state 2 for its representative subset, so it is not directly comparable
+to this v19/state-3 delivery. The upstream [LiLo-VLA](https://github.com/YY-GX/LiLo-VLA),
+[LIBERO](https://github.com/Lifelong-Robot-Learning/LIBERO), and
+[LIBERO-PRO](https://github.com/RLinf/LIBERO-PRO) projects do not publish scores
+under this exact subset, Agent and budget combination; no unmatched public
+number is guessed or ranked here.
+
+Representative success/failure case directories are `t00-i01` / `t02-i01`
+under `source-repro-v3/libero_long_plus_plus/cases/`, `t00-i01` / `t01-i01`
+under `source-v13-compat-geom-full-r3/cases/`, and
+`libero_10_swap-t00-i03` / `libero_10_swap-t06-i03` under
+`source-pro-combined-v1/cases/`. Each retains `result.json`, native score and
+video, Runner trace, full Agent trace and redacted effective configuration. The
+aggregate-directory symlinks are convenience indexes; their targets own the
+evidence files.
+
+Observed first-pass wall-clock spans were about 27 minutes for Long++, 80
+minutes for Ultra-Long and 2.3 hours for PRO under the recorded concurrency.
+The traces contain 496/969/1923 model requests, about 8.0M/92.3M/41.6M input
+tokens (including tokens later served from cache), and 159k/231k/147k output
+tokens respectively. The internal endpoint has no delivery pricing, so a
+currency cost cannot be stated; apply the selected endpoint's input, output and
+cache rates to these counters.
+
 ## Inputs
 
 An evaluation requires:
@@ -86,6 +128,9 @@ python -m benchmarks.package --benchmark libero_pro \
   --output ../work/libero_three/build-pro
 python -m benchmarks.package --benchmark libero_lilo \
   --output ../work/libero_three/build-lilo
+python -m benchmarks.libero_pro.assets \
+  --source /path/to/full-evaluation/libero/libero \
+  --output-dir ../work/libero_three/registry/libero_pro/assets
 ```
 
 Build and push both contexts, retain their `repository@sha256:digest` values,
@@ -94,6 +139,7 @@ then run these commands inside the corresponding image:
 ```bash
 python -m benchmarks.libero_pro.manifest \
   --image REGISTRY/heart-libero-pro@sha256:DIGEST \
+  --asset /output/libero_pro/assets/asset.json \
   --profile migration_subset \
   --output /output/libero_pro/manifest.json
 
@@ -108,6 +154,16 @@ python -m benchmarks.libero_lilo.manifest \
   --output /output/libero_ultra_long/manifest.json
 ```
 
+The PRO asset command seals only `bddl_files/` and `init_files/`, requires the
+full-evaluation directory SHA-256
+`381f91eec4ec26bc2a0bd06e32da8713f56367c5431d7a8cfa74d69439b57be9`,
+and produces an approximately 18.2 MB read-only Registry snapshot mounted at
+`/heart/assets/libero_pro`. Both images materialize LIBERO's mutable path file
+under `/tmp`; PRO therefore cannot silently fall back to incomplete checkout
+evaluation files. When generating the PRO manifest inside the built image,
+mount the registry's `libero_pro/` directory read-write at the same path and its
+sealed snapshot read-only at `/heart/assets/libero_pro`.
+
 Omit `--profile migration_subset` for the official full set. Add
 `--plus9-on-failure` only for a separately named cumulative diagnostic. Never
 compare a +9 run to a 1× run as if their stopping conditions were identical.
@@ -117,8 +173,8 @@ compare a +9 run to a 1× run as if their stopping conditions were identical.
 The preparation command reads an existing package family, verifies every file,
 copies it to an external work directory, verifies it again, and emits a
 diagnostic `package-map.json`. It never modifies the source. The authoritative
-task-to-package maps and relocatable Agent presets remain in
-`configs/libero_three/`.
+task-to-package maps remain in `configs/libero_three/`; canonical relocatable
+Agent presets are in `configs/agents/libero_three/`.
 
 ```bash
 python scripts/libero_three/prepare_context.py \
@@ -152,6 +208,27 @@ image groups. `run_source.py` injects the host-configured local tokenizer and
 its locked SHA-256. Text history remains complete below the trigger; this is
 not equivalent to a fixed recent-turn truncation.
 
+The supported leaf presets are
+`configs/agents/libero_three/long_plus_plus_v13.yaml`,
+`configs/agents/libero_three/ultra_long_v13.yaml`, and
+`configs/agents/libero_three/pro_v19.yaml`. `base.yaml` and `v13.yaml` are
+inheritance-only parents.
+
+Export and install a relocatable Agent bundle, for example:
+
+```bash
+python -m heart_runtime.agents.package \
+  --config configs/agents/libero_three/long_plus_plus_v13.yaml \
+  --name libero_long_plus_plus_v13 \
+  --output /tmp/libero-longpp-agent-build
+python -m build --wheel /tmp/libero-longpp-agent-build
+python -m pip install /tmp/libero-longpp-agent-build/dist/*.whl
+```
+
+Outside the checkout select `bundle:libero_long_plus_plus_v13`. The wheel
+declares `heart-runtime[runtime]`; sealed ICL packages remain external and are
+selected through the preset's named environment variable.
+
 ## Source runtime on an AFS-capable machine
 
 Copy `configs/libero_three/source-runtime.example.json` outside the checkout and
@@ -184,12 +261,15 @@ newrpent/
 The checkout can therefore be replaced or rebased without touching large or
 private runtime state. On another machine that mounts the same AFS tree, only
 the checkout and the private host config are needed; every remaining external
-path is named by that config. The machine/container still needs Linux EGL/GL
-runtime libraries (`libgl1`, `libegl1`, and `libglib2.0-0` on Ubuntu). The
-configured Python interpreters or wrappers carry the Python dependency
-environments.
+path is named by that config. The machine/container still needs an Ubuntu
+22.04-compatible `python3.10` and Linux EGL/GL runtime libraries (`libgl1`,
+`libegl1`, and `libglib2.0-0`). The LiLo venv entry resolves to
+`/usr/bin/python3.10`; mounting AFS alone is not enough on a host without that
+interpreter. The configured environments or wrappers carry the Python package
+dependencies.
 
-`system_packages` records those host/container libraries explicitly. The
+`system_packages` records `python3.10` and those host/container libraries
+explicitly. The
 configured `openpi_data_home` must already contain
 `big_vision/paligemma_tokenizer.model`; preflight checks its locked size and
 digest so Pi0.5 startup never depends on downloading it from GCS.
@@ -253,7 +333,7 @@ before allocating a simulator:
 python scripts/libero_three/run.py \
   --benchmark libero_long_plus_plus \
   --registry-root ../work/libero_three/registry \
-  --agent-config configs/libero_three/agent-libero_long_plus_plus.json \
+  --agent-config configs/agents/libero_three/long_plus_plus_v13.yaml \
   --results-root ../work/libero_three/results \
   --run-id longpp-v13-icl \
   --agent-set parameters.enable_vla=false \
@@ -300,3 +380,21 @@ but is not the sole gate because model services can be nondeterministic.
   write either result.
 - Rebuild the image and regenerate its manifest after any adapter or scorer
   change. Source-digest verification rejects undeclared runtime files.
+
+No pullable final image reference or digest is currently available. That is
+the sole explicit incomplete delivery item. The Dockerfiles, pinned base image
+digest, upstream commits, context exporter and manifest generators are present;
+after build/push, record `repository@sha256:digest` in each Benchmark README and
+run the native HTTP smoke from those exact images.
+
+Until a real build exists, size is a capacity estimate rather than a registry
+fact. Measured source inputs are about 427 MiB for LIBERO (405 MiB assets), 657
+MiB for the LIBERO-PRO checkout (617 MiB assets), and 590 MiB for robosuite's
+assets. With CPU Torch, MuJoCo, SciPy, Python and system libraries, expect about
+2.4--3.0 GiB unpacked / 1.2--1.8 GiB compressed for `libero_lilo`, and
+3.0--4.0 GiB unpacked / 1.5--2.4 GiB compressed for `libero_pro`. Budget at
+least 8 GiB to hold both final images and 15--20 GiB on the builder for cache
+and intermediate layers. Pi0.5 (7.47 GB) and SAM3 (3.45 GB) checkpoints are
+outside the Benchmark images; embedding them would add about 10.9 GB of raw
+weights alone. Confirm final values with image inspection and the registry
+manifest after the actual build.
