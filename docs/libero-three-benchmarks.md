@@ -109,10 +109,13 @@ An evaluation requires:
    Pi0.5, SAM3, PaliGemma and model RPC/MCP endpoints are not dependencies of
    this three-benchmark condition.
 
-The Benchmark image has no model dependency or model credential. The Agent and
-Benchmark may be deployed independently. The generated manifests request one
-GPU for deterministic MuJoCo EGL rendering; no VLA/SAM3 model service is
-started or contacted by this condition.
+The Benchmark image has no model dependency or model credential. The portable
+Agent image embeds all three sealed ICL trees, the locked tokenizer, the three
+installed Agent bundles and their Python dependencies. Only the model endpoint
+and credential are injected at runtime. Agent and Benchmark may be deployed
+independently. The generated Benchmark manifests request one GPU for
+deterministic MuJoCo EGL rendering; no VLA/SAM3 model service is started or
+contacted by this condition.
 
 ## Build and lock Benchmark images
 
@@ -188,12 +191,14 @@ python scripts/libero_three/prepare_context.py \
   --destination ../work/libero_three/pro-icl
 ```
 
-Set `HEART_LIBERO_LONGPP_ICL_ROOT`, `HEART_LIBERO_ULTRA_ICL_ROOT`, and
-`HEART_LIBERO_PRO_ICL_ROOT` to the corresponding external `packages/`
-directories. All three repository presets use max reasoning effort, explicitly
-disable VLA and SAM3, and enable Responses prompt caching. PRO disables model
-retries to match its full reference; the ordered benchmarks retain three
-bounded retries for transient transport/5xx failures.
+In source mode, set `HEART_LIBERO_LONGPP_ICL_ROOT`,
+`HEART_LIBERO_ULTRA_ICL_ROOT`, and `HEART_LIBERO_PRO_ICL_ROOT` to the
+corresponding external `packages/` directories. The portable Agent image below
+sets those variables to its embedded, digest-verified copies. All three
+repository presets use max reasoning effort, explicitly disable VLA and SAM3,
+and enable Responses prompt caching. PRO disables model retries to match its
+full reference; the ordered benchmarks retain three bounded retries for
+transient transport/5xx failures.
 
 All three presets use the token-accurate context policy: a 1,050,000-token
 window, 128,000-token output reserve, 32,768-token overhead reserve, 0.75
@@ -220,8 +225,65 @@ python -m pip install /tmp/libero-longpp-agent-build/dist/*.whl
 ```
 
 Outside the checkout select `bundle:libero_long_plus_plus_v13`. The wheel
-declares `heart-runtime[runtime]`; sealed ICL packages remain external and are
-selected through the preset's named environment variable.
+declares `heart-runtime[runtime]` and `tokenizers==0.22.2`. ICL payloads remain
+outside the small wheel: source mode selects an external sealed tree, while the
+portable Agent image copies the same verified tree into the image.
+
+## Build the portable Agent image
+
+First stage exactly the three sealed ICL roots and tokenizer. The command
+rejects missing/extra package directories, links, count mismatches and any
+content whose directory or file SHA-256 differs from `assets.lock.json`:
+
+```bash
+python scripts/libero_three/prepare_agent_assets.py \
+  --longpp-root ../work/libero_three/longpp-icl/packages \
+  --ultra-root ../work/libero_three/ultra-icl/packages \
+  --pro-root ../work/libero_three/pro-icl/packages \
+  --tokenizer ../work/libero_three/tokenizer/tokenizer.json \
+  --output dist/agent/libero-three-assets
+```
+
+Export all three bundles with the in-image tokenizer identity. Use fresh output
+directories and then build all three wheels into `dist/agent/`:
+
+```bash
+python -m heart_runtime.agents.package \
+  --config configs/agents/libero_three/long_plus_plus_v13.yaml \
+  --name libero_long_plus_plus_v13 \
+  --set 'runtime.context.tokenizer_file="/opt/heart-agent-assets/tokenizer.json"' \
+  --set 'runtime.context.tokenizer_sha256="0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"' \
+  --output ../work/libero_three/agent-bundle-longpp
+python -m heart_runtime.agents.package \
+  --config configs/agents/libero_three/ultra_long_v13.yaml \
+  --name libero_ultra_long_v13 \
+  --set 'runtime.context.tokenizer_file="/opt/heart-agent-assets/tokenizer.json"' \
+  --set 'runtime.context.tokenizer_sha256="0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"' \
+  --output ../work/libero_three/agent-bundle-ultra
+python -m heart_runtime.agents.package \
+  --config configs/agents/libero_three/pro.yaml --name libero_pro \
+  --set 'runtime.context.tokenizer_file="/opt/heart-agent-assets/tokenizer.json"' \
+  --set 'runtime.context.tokenizer_sha256="0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"' \
+  --output ../work/libero_three/agent-bundle-pro
+python -m build --wheel --outdir dist/agent ../work/libero_three/agent-bundle-longpp
+python -m build --wheel --outdir dist/agent ../work/libero_three/agent-bundle-ultra
+python -m build --wheel --outdir dist/agent ../work/libero_three/agent-bundle-pro
+```
+
+Build a local HEART wheel and use it only to resolve a complete hash-locked
+Python 3.11 dependency file, as described in `agents/python/README.md`. Then:
+
+```bash
+docker build --target libero_three -f agents/python/Dockerfile \
+  --build-arg AGENT_REQUIREMENTS=dist/agent/requirements.txt \
+  --build-arg 'AGENT_WHEEL=dist/agent/heart_agent_bundle_libero_*.whl' \
+  --build-arg LIBERO_THREE_ASSETS=dist/agent/libero-three-assets \
+  -t REGISTRY/heart-libero-three-agent:REVISION .
+```
+
+The final Docker stage reruns the package maps, counts and content digests and
+fails the build if a bundle does not point to the embedded tokenizer. The image
+contains no model weights, endpoint or credential.
 
 ## Source runtime on an AFS-capable machine
 
@@ -318,7 +380,9 @@ before allocating a simulator:
 python scripts/libero_three/run.py \
   --benchmark libero_long_plus_plus \
   --registry-root ../work/libero_three/registry \
-  --agent-config configs/agents/libero_three/long_plus_plus_v13.yaml \
+  --agent-config bundle:libero_long_plus_plus_v13 \
+  --agent-image REGISTRY/heart-libero-three-agent@sha256:DIGEST \
+  --agent-credential-env OPENAI_API_KEY \
   --results-root ../work/libero_three/results \
   --run-id longpp-v13-icl \
   --agent-set parameters.enable_vla=false \
@@ -326,10 +390,13 @@ python scripts/libero_three/run.py \
   --dry-run
 ```
 
-Remove `--dry-run` to execute locally. On SenseCore, add `--sco-config` so the
-existing HEART SCO executor creates Benchmark workers; do not run MuJoCo,
-models, image builds, or long evaluations on a login node. `--resume-from`
-reuses only completed non-retryable cases whose complete locked inputs match.
+Remove `--dry-run` to execute locally. The machine needs Docker, a GPU supported
+by the selected Benchmark image and access to the external model endpoint; it
+does not need AFS or an m-cluster checkout. On SenseCore, `--sco-config` creates
+Benchmark workers but is not combined with a local Docker Agent. Do not run
+MuJoCo, models, image builds, or long evaluations on a login node.
+`--resume-from` reuses only completed non-retryable cases whose complete locked
+inputs match.
 
 The migration validation order is Long++ (12), Ultra-Long (9), then PRO (80).
 It is an ICL-only migration check. It validates protocol alignment, terminal
@@ -359,6 +426,7 @@ but is not the sole gate because model services can be nondeterministic.
 
 - Do not commit `work/`, credentials, model checkpoints, copied ICL packages,
   datasets, generated manifests tied to private registries, or result videos.
+  The ICL/tokenizer copies are build inputs for the Agent image, not Git files.
 - Keep all source pins and image digests immutable for a reported run.
 - Treat reference evaluation directories as read-only inputs.
 - A Benchmark service owns simulator files and native score; an Agent cannot
@@ -366,20 +434,10 @@ but is not the sole gate because model services can be nondeterministic.
 - Rebuild the image and regenerate its manifest after any adapter or scorer
   change. Source-digest verification rejects undeclared runtime files.
 
-No pullable final image reference or digest is currently available. That is
-the sole explicit incomplete delivery item. The Dockerfiles, pinned base image
-digest, upstream commits, context exporter and manifest generators are present;
-after build/push, record `repository@sha256:digest` in each Benchmark README and
-run the native HTTP smoke from those exact images.
-
-Until a real build exists, size is a capacity estimate rather than a registry
-fact. Measured source inputs are about 427 MiB for LIBERO (405 MiB assets), 657
-MiB for the LIBERO-PRO checkout (617 MiB assets), and 590 MiB for robosuite's
-assets. With CPU Torch, MuJoCo, SciPy, Python and system libraries, expect about
-2.4--3.0 GiB unpacked / 1.2--1.8 GiB compressed for `libero_lilo`, and
-3.0--4.0 GiB unpacked / 1.5--2.4 GiB compressed for `libero_pro`. Budget at
-least 8 GiB to hold both final images and 15--20 GiB on the builder for cache
-and intermediate layers. The current condition does not require Pi0.5 or SAM3;
-the historical checkpoints (about 10.9 GB raw in total) should not be copied
-into either image. Confirm final values with image inspection and the registry
-manifest after the actual build.
+The final pullable sh01 image references and registry digests are recorded here
+after publication. The locally verified unpacked sizes are about 4.85 GB for
+`heart-libero-pro`, 3.98 GB for `heart-libero-lilo`, and 1.57 GB for the combined
+Agent image. The Agent's sealed ICL plus tokenizer build input is about 49 MiB;
+most of its image size is the locked Python/Agent CLI runtime. The current
+condition does not require Pi0.5 or SAM3, so their historical checkpoints
+(about 10.9 GB raw in total) are deliberately absent.

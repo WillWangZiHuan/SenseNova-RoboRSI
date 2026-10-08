@@ -16,6 +16,20 @@ ARG AGENT_WHEEL
 COPY ${AGENT_WHEEL} /tmp/agent-wheels/
 RUN pip install --no-deps /tmp/agent-wheels/*.whl && pip check
 
+# Portable three-LIBERO Agent: three installed presets plus sealed ICL/tokenizer.
+FROM configured AS libero_three
+ARG LIBERO_THREE_ASSETS=dist/agent/libero-three-assets
+COPY ${LIBERO_THREE_ASSETS}/ /opt/heart-agent-assets/
+COPY configs/libero_three/assets.lock.json /tmp/libero-three-assets.lock.json
+COPY scripts/libero_three/verify_agent_image.py /tmp/verify-libero-three-agent.py
+ENV HEART_LIBERO_LONGPP_ICL_ROOT=/opt/heart-agent-assets/longpp/packages \
+    HEART_LIBERO_ULTRA_ICL_ROOT=/opt/heart-agent-assets/ultra/packages \
+    HEART_LIBERO_PRO_ICL_ROOT=/opt/heart-agent-assets/pro/packages \
+    HEART_CONTEXT_TOKENIZER_PATH=/opt/heart-agent-assets/tokenizer.json
+RUN python -B /tmp/verify-libero-three-agent.py \
+    --lock /tmp/libero-three-assets.lock.json \
+    && rm /tmp/verify-libero-three-agent.py /tmp/libero-three-assets.lock.json
+
 # Preserve the existing default fixed-action image.
 FROM runtime AS example
 COPY examples/roborsi/hold_agent.py /usr/local/lib/python3.11/site-packages/roborsi_hold_agent.py

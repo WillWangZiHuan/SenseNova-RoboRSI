@@ -1,6 +1,6 @@
 # LIBERO-PRO、Long++ 与 Ultra-Long 接入说明
 
-本文说明三套 benchmark 的冻结评测约束、外部依赖、AFS 目录布局和源码运行方式。
+本文说明三套 benchmark 的冻结评测约束、镜像交付、AFS 目录布局和源码运行方式。
 英文版见 [libero-three-benchmarks.md](libero-three-benchmarks.md)。
 
 ## 评测契约
@@ -68,7 +68,14 @@ Agent 条件已经对齐，测试范围仍不同于全量参考。
 token 约为 159k、231k、147k。内部 TokenHub 没有随交付提供可结算单价，无法诚实换算
 货币成本；接收方应按实际 endpoint 的 input/output/cache 单价计算。
 
-## “仓库 + 配置”运行边界
+## 两种运行边界
+
+正式可移植模式使用三个 digest 固定的镜像：PRO Benchmark、Long++/Ultra 共用的 LiLo
+Benchmark，以及包含三套 Agent bundle、ICL、tokenizer 和 Python 依赖的 Agent 镜像。
+目标 GPU 机器不需要挂载 m 集群或 AFS；它只需要镜像、registry/manifest 配置、Docker、
+GPU 驱动、模型 endpoint 和运行时注入的凭证。模型权重、endpoint 和凭证都不进入镜像。
+
+以下 AFS 布局仅用于源码复现和重新准备镜像输入：
 
 推荐布局如下：
 
@@ -183,9 +190,43 @@ python -m pip install /tmp/libero-longpp-agent-build/dist/*.whl
 ```
 
 安装后可从仓库外使用 `--agent-config bundle:libero_long_plus_plus_v13`。ICL 本体不进入
-wheel，仍由 `HEART_LIBERO_LONGPP_ICL_ROOT` 指向经过哈希校验的外部包；Ultra-Long 和
-PRO 对应 `HEART_LIBERO_ULTRA_ICL_ROOT` 和 `HEART_LIBERO_PRO_ICL_ROOT`。wheel 声明
-`heart-runtime[runtime]`，应与本交付对应的 HEART commit 一起构建和安装。
+小 wheel：源码模式仍由 `HEART_LIBERO_LONGPP_ICL_ROOT` 指向外部密封包，可移植 Agent
+镜像则把同一份核验副本放到 `/opt/heart-agent-assets/`；Ultra-Long 和 PRO 同理。wheel
+声明 `heart-runtime[runtime]` 和 `tokenizers==0.22.2`，应与本交付对应的 HEART commit
+一起构建。
+
+## 构建可移植 Agent 镜像
+
+先把 m 集群只读来源复制到本机构建目录，再运行以下命令。准备器会拒绝多余/缺少的
+package、case/package 数量错误以及与 `assets.lock.json` 不同的目录或文件 SHA-256：
+
+```bash
+python scripts/libero_three/prepare_agent_assets.py \
+  --longpp-root ../work/libero_three/longpp-icl/packages \
+  --ultra-root ../work/libero_three/ultra-icl/packages \
+  --pro-root ../work/libero_three/pro-icl/packages \
+  --tokenizer ../work/libero_three/tokenizer/tokenizer.json \
+  --output dist/agent/libero-three-assets
+```
+
+分别用 `heart_runtime.agents.package` 导出
+`libero_long_plus_plus_v13`、`libero_ultra_long_v13` 和 `libero_pro`，导出时把
+`runtime.context.tokenizer_file` 固定为
+`/opt/heart-agent-assets/tokenizer.json`，把 `tokenizer_sha256` 固定为
+`0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3`。按
+`agents/python/README.md` 生成三套 wheel 和完整的 Python 3.11 hash lock，然后构建：
+
+```bash
+docker build --target libero_three -f agents/python/Dockerfile \
+  --build-arg AGENT_REQUIREMENTS=dist/agent/requirements.txt \
+  --build-arg 'AGENT_WHEEL=dist/agent/heart_agent_bundle_libero_*.whl' \
+  --build-arg LIBERO_THREE_ASSETS=dist/agent/libero-three-assets \
+  -t REGISTRY/heart-libero-three-agent:REVISION .
+```
+
+最后一个 Docker stage 会再次加载全部 package map，校验 Long++ 12/12、Ultra 9/9、
+PRO 80/40 和三套目录摘要，并实际加载固定 tokenizer。任何 bundle 未指向镜像内 tokenizer
+都会使构建失败。约 49 MiB 的 ICL/tokenizer 构建输入进入镜像；模型权重和凭证不进入。
 
 ## 源码 smoke 与子集运行
 
@@ -226,6 +267,21 @@ SAM3 或本地模型服务的主机配置。
 | Ultra-Long | `configs/agents/libero_three/ultra_long_v13.yaml` |
 | PRO | `configs/agents/libero_three/pro.yaml` |
 
+可移植运行时改用镜像内 bundle 名称，例如：
+
+```bash
+python scripts/libero_three/run.py \
+  --benchmark libero_long_plus_plus \
+  --registry-root ../work/libero_three/registry \
+  --agent-config bundle:libero_long_plus_plus_v13 \
+  --agent-image REGISTRY/heart-libero-three-agent@sha256:DIGEST \
+  --agent-credential-env OPENAI_API_KEY \
+  --results-root ../work/libero_three/results \
+  --run-id longpp-v13-icl --dry-run
+```
+
+去掉 `--dry-run` 后执行。此模式不读取主机上的 ICL、tokenizer 或 Agent 源码。
+
 只有 `success` 与原生 `task_failure` 是合法评测终态。Agent error、基础设施错误、缺少
 `result.json` 或重复结果都会使命令失败。Smoke 的目标是验证链路，因此得到带完整证据的
 `task_failure` 也表示运行链路通过，不代表任务得分成功。
@@ -247,7 +303,7 @@ SAM3 或本地模型服务的主机配置。
 
 ## 镜像边界
 
-当前源码复现不依赖新构建镜像。以后在其他机器构建时，可用：
+Benchmark 镜像构建材料使用：
 
 ```bash
 python -m benchmarks.package --benchmark libero_pro \
@@ -260,8 +316,9 @@ python -m benchmarks.libero_pro.assets \
   --build-context ../work/libero_three/build-pro
 ```
 
-构建上下文仍放在外部 `work/`。最终镜像必须以 digest 固定；镜像只含 benchmark 和
-模拟器，不能含 Agent SDK、模型凭证或对话状态。当前条件不需要 Pi0.5/SAM3。
+构建上下文仍放在外部 `work/`。最终 Benchmark 镜像必须以 digest 固定；镜像只含
+benchmark 和模拟器，不能含 Agent SDK、模型凭证或对话状态。Agent 的 ICL/tokenizer
+只在独立 Agent 镜像中。当前条件不需要 Pi0.5/SAM3。
 
 准备器仅密封 `bddl_files/` 与 `init_files/`，固定目录 SHA-256 为
 `381f91eec4ec26bc2a0bd06e32da8713f56367c5431d7a8cfa74d69439b57be9`，并把核验后的
@@ -271,30 +328,21 @@ snapshot 作为 `evaluation-assets/` 放入 PRO 构建上下文。Dockerfile 在
 评测文件。最终 PRO 镜像不再依赖 AFS、运行时资产挂载或在线下载；manifest 的
 `assets_version` 直接记录镜像内资产摘要。
 
-当前没有可拉取的最终镜像地址和 digest，因此“已构建 Benchmark 镜像”是本交付唯一明确
-未完成项。Dockerfile、固定基础镜像 digest、上游 commit、构建上下文导出器和 manifest
-生成器已经入库；在镜像构建机完成 build/push 后，仍需把最终
-`repository@sha256:digest` 回填到两个 Benchmark README，并从该镜像执行原生 HTTP smoke。
+最终 sh01 镜像地址和 registry digest 在发布后回填到本文。当前本机构建并校验的解压尺寸：
 
-在未实际 build 的前提下，只能给容量规划值而不能冒充最终 registry 大小。当前 AFS
-实测：普通 LIBERO 源码树约 427 MiB（其中 assets 405 MiB），LIBERO-PRO checkout 约
-657 MiB（assets 617 MiB），robosuite 自带 assets 约 590 MiB。再加 CPU Torch、MuJoCo、
-SciPy、基础 Python 和系统库，预计：
+| 镜像 | 本地解压尺寸 |
+| --- | ---: |
+| `heart-libero-lilo`（Long++ 与 Ultra 共用） | 约 3.98 GB |
+| `heart-libero-pro` | 约 4.85 GB |
+| `heart-libero-three-agent` | 约 1.57 GB |
 
-| 镜像 | `docker images` 解压后估算 | registry/pull 压缩量估算 |
-| --- | ---: | ---: |
-| `libero_lilo`（Long++ 与 Ultra 共用） | 2.4–3.0 GiB | 1.2–1.8 GiB |
-| `libero_pro` | 3.0–4.0 GiB | 1.5–2.4 GiB |
-| 两个镜像合计 | 5.4–7.0 GiB | 2.7–4.2 GiB |
-
-建议目标机给最终镜像预留至少 8 GiB，构建机给 build cache 和中间层预留 15–20 GiB。
 当前条件不需要历史 Pi0.5/SAM3 权重（原始合计约 10.9 GB），不要把它们打进镜像。
-最终数值必须在构建机上用 `docker image inspect` 和 registry manifest 实测。
+registry 压缩传输量和最终 digest 以 push 后的 manifest 为准。
 
 ## 安全规则
 
 - 不提交 `work/`、凭证、checkpoint、复制的 ICL、dataset、私有 registry manifest、
-  视频和结果；
+  视频和结果；ICL/tokenizer 副本仅作为 Agent 镜像输入；
 - 参考评测目录只读；
 - 报告中的源码 revision、配置 fingerprint、package 哈希和镜像 digest 必须不可变；
 - Benchmark 服务拥有模拟器文件和原生分数，Agent 不得写入这些结果；
