@@ -1,5 +1,9 @@
 # 复现三套 LIBERO 评测
 
+下方固定镜像属于历史交付，复现时需使用匹配的源码版本。当前 RoboRSI 要求重建镜像、
+更新工厂并使用 `/roborsi/` 挂载；新运行请遵循
+[迁移指南](source-zh/rst_source/usage/roborsi_migration.rst)。
+
 本文说明如何在一台干净的 Linux 机器上运行已交付的 LIBERO-PRO、Long++
 和 Ultra-Long 评测。原先从 m 集群读取的运行资产都已经封装进镜像：Benchmark
 镜像包含模拟器、BDDL 和初始状态；共享 Agent 镜像包含三套 ICL 包、锁定的

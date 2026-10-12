@@ -28,7 +28,7 @@ LIBERO 最终目标成功替代顺序成功。
 
 迁移接口还保留 `libero-robot-state-feedback-v1`：它将旧 v13 直接工具返回的
 `robot0_eef_pos`、xyzw 四元数和 `robot0_gripper_qpos` 以具名字段随每次观测返回，同时
-继续保留策略所需的 8 维 `states`。`heart_action` 的 action schema 对每个旧 direct-control
+继续保留策略所需的 8 维 `states`。`roborsi_action` 的 action schema 对每个旧 direct-control
 primitive 明确标注语义；特别是 `rotate_wrist` 表示保持末端位置的原地腕部旋转，不能用
 `move_pose.target_yaw` 替代。该兼容层只恢复旧工具契约，不改变任务、评分器、初始化或
 物理步数预算。
@@ -132,7 +132,7 @@ tokenizer 哈希；当前三套条件都不需要模型 checkpoint。
 ## 当前三套依赖策略
 
 - 三套 preset 均为 `reasoning_effort=max`，并显式关闭 VLA 和 SAM3。
-- 三套评测均走独立 Benchmark HTTP 服务和同一个 `heart_action` action/feedback primitive
+- 三套评测均走独立 Benchmark HTTP 服务和同一个 `roborsi_action` action/feedback primitive
   协议；不会启动或连接 Pi0.5/SAM3 服务。
 - 三套均开启 Responses prompt caching；PRO 关闭模型重试以匹配全量参考，另外两套对
   transient transport/5xx 保留最多三次有界重试。
@@ -184,7 +184,7 @@ manifest/package 哈希、12/9/80 映射数量、Agent config fingerprint 和统
 名称即可：
 
 ```bash
-python -m heart_runtime.agents.package \
+python -m roborsi.agents.package \
   --config configs/agents/libero_three/long_plus_plus_v13.yaml \
   --name libero_long_plus_plus_v13 \
   --output /tmp/libero-longpp-agent-build
@@ -193,9 +193,9 @@ python -m pip install /tmp/libero-longpp-agent-build/dist/*.whl
 ```
 
 安装后可从仓库外使用 `--agent-config bundle:libero_long_plus_plus_v13`。ICL 本体不进入
-小 wheel：源码模式仍由 `HEART_LIBERO_LONGPP_ICL_ROOT` 指向外部密封包，可移植 Agent
-镜像则把同一份核验副本放到 `/opt/heart-agent-assets/`；Ultra-Long 和 PRO 同理。wheel
-声明 `heart-runtime[runtime]` 和 `tokenizers==0.22.2`，应与本交付对应的 HEART commit
+小 wheel：源码模式仍由 `ROBORSI_LIBERO_LONGPP_ICL_ROOT` 指向外部密封包，可移植 Agent
+镜像则把同一份核验副本放到 `/opt/roborsi-agent-assets/`；Ultra-Long 和 PRO 同理。wheel
+声明 `roborsi[runtime]` 和 `tokenizers==0.22.2`，应与本交付对应的 RoboRSI commit
 一起构建。
 
 ## 构建可移植 Agent 镜像
@@ -212,19 +212,19 @@ python scripts/libero_three/prepare_agent_assets.py \
   --output dist/agent/libero-three-assets
 ```
 
-分别用 `heart_runtime.agents.package` 导出
+分别用 `roborsi.agents.package` 导出
 `libero_long_plus_plus_v13`、`libero_ultra_long_v13` 和 `libero_pro`，导出时把
 `runtime.context.tokenizer_file` 固定为
-`/opt/heart-agent-assets/tokenizer.json`，把 `tokenizer_sha256` 固定为
+`/opt/roborsi-agent-assets/tokenizer.json`，把 `tokenizer_sha256` 固定为
 `0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3`。按
 `agents/python/README.md` 生成三套 wheel 和完整的 Python 3.11 hash lock，然后构建：
 
 ```bash
 docker build --target libero_three -f agents/python/Dockerfile \
   --build-arg AGENT_REQUIREMENTS=dist/agent/requirements.txt \
-  --build-arg 'AGENT_WHEEL=dist/agent/heart_agent_bundle_libero_*.whl' \
+  --build-arg 'AGENT_WHEEL=dist/agent/roborsi_agent_bundle_libero_*.whl' \
   --build-arg LIBERO_THREE_ASSETS=dist/agent/libero-three-assets \
-  -t REGISTRY/heart-libero-three-agent:REVISION .
+  -t REGISTRY/roborsi-libero-three-agent:REVISION .
 ```
 
 最后一个 Docker stage 会再次加载全部 package map，校验 Long++ 12/12、Ultra 9/9、
@@ -277,7 +277,7 @@ python scripts/libero_three/run.py \
   --benchmark libero_long_plus_plus \
   --registry-root ../work/libero_three/registry \
   --agent-config bundle:libero_long_plus_plus_v13 \
-  --agent-image REGISTRY/heart-libero-three-agent@sha256:DIGEST \
+  --agent-image REGISTRY/roborsi-libero-three-agent@sha256:DIGEST \
   --agent-credential-env OPENAI_API_KEY \
   --agent-credential-env OPENAI_BASE_URL \
   --results-root ../work/libero_three/results \
@@ -294,7 +294,7 @@ python scripts/libero_three/run.py \
 
 每个案例应保存：
 
-- `result.json`：HEART 终态、1× 原生分数和固定 provenance；
+- `result.json`：RoboRSI 终态、1× 原生分数和固定 provenance；
 - `native/score.json`：1× 快照、累计诊断及真实步数；
 - `native/episode.mp4`：存在帧时的相机证据；
 - `media/`：返回给 Agent 的内容寻址观测；
@@ -332,7 +332,8 @@ snapshot 作为 `evaluation-assets/` 放入 PRO 构建上下文。Dockerfile 在
 评测文件。最终 PRO 镜像不再依赖 AFS、运行时资产挂载或在线下载；manifest 的
 `assets_version` 直接记录镜像内资产摘要。
 
-ms-sc-01 可拉取镜像为：
+下表 ms-sc-01 已发布镜像记录历史交付，digest 保持原值。运行当前源码前，
+须按 RoboRSI 接口和 `/roborsi/` 挂载重建镜像与 manifest。
 
 | 角色 | 不可变镜像 |
 | --- | --- |
@@ -356,9 +357,9 @@ Benchmark 执行链路，不代表 Agent 任务准确率；Agent 成绩仅采用
 
 | 镜像 | 本地解压尺寸 |
 | --- | ---: |
-| `heart-libero-lilo`（Long++ 与 Ultra 共用） | 约 3.98 GB |
-| `heart-libero-pro` | 约 4.85 GB |
-| `heart-libero-three-agent` | 约 1.57 GB |
+| `roborsi-libero-lilo`（Long++ 与 Ultra 共用） | 约 3.98 GB |
+| `roborsi-libero-pro` | 约 4.85 GB |
+| `roborsi-libero-three-agent` | 约 1.57 GB |
 
 当前条件不需要历史 Pi0.5/SAM3 权重（原始合计约 10.9 GB），不要把它们打进镜像。
 

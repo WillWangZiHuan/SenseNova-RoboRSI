@@ -1,7 +1,7 @@
 # Copyright 2026 The HEART Authors.
 # Licensed under the Apache License, Version 2.0 (the "License");
 
-"""Copy frozen ICL packages into a run-local, verified HEART input bundle."""
+"""Copy frozen ICL packages into a run-local, verified RoboRSI input bundle."""
 
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ _REPOSITORY = Path(__file__).resolve().parents[2]
 if str(_REPOSITORY) not in sys.path:
     sys.path.insert(0, str(_REPOSITORY))
 
-from heart_runtime.agents.context_package import ContextPackage  # noqa: E402
-from heart_runtime.evaluation.result import write_json_atomic  # noqa: E402
+from roborsi.agents.context_package import ContextPackage  # noqa: E402
+from roborsi.evaluation.result import write_json_atomic  # noqa: E402
 
 
 def _sources(root: Path, benchmark: str) -> dict[str, Path]:

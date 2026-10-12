@@ -1,5 +1,10 @@
 # Reproduce the three LIBERO evaluations
 
+The pinned images below are historical delivery artifacts. Use their matching
+source release to reproduce that delivery. Current RoboRSI requires rebuilt
+images, new factories and ``/roborsi/`` mounts; follow the
+[migration guide](source-en/rst_source/usage/roborsi_migration.rst) for a new run.
+
 This guide runs the delivered LIBERO-PRO, Long++ and Ultra-Long evaluations on
 a clean Linux host. Runtime assets formerly read from the m-cluster are sealed
 in the images: the Benchmark images contain simulator, BDDL and init-state

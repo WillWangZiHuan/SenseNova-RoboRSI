@@ -1,6 +1,6 @@
 # LIBERO-PRO, Long++ and Ultra-Long
 
-This integration keeps simulator state and native scoring in standalone HEART
+This integration keeps simulator state and native scoring in standalone RoboRSI
 Benchmark services. The Agent receives only declared observations and submits
 either 7-DoF Panda `OSC_POSE` actions or one of the declared feedback primitives
 (`move_to`, `move_pose`, wrist rotation, gripper control). Primitives compile to
@@ -43,7 +43,7 @@ The migration also preserves `libero-robot-state-feedback-v1`. Every ordered
 observation names the `robot0_eef_pos`, xyzw quaternion, and
 `robot0_gripper_qpos` values returned by the legacy v13 direct tools while
 retaining the compact eight-dimensional `states` policy input. The
-`heart_action` schema describes each legacy direct-control primitive explicitly;
+`roborsi_action` schema describes each legacy direct-control primitive explicitly;
 in particular, `rotate_wrist` rotates in place and is not interchangeable with
 `move_pose.target_yaw`. This compatibility layer does not change tasks, scoring,
 initialization, or physical-step budgets.
@@ -141,17 +141,17 @@ then run these commands inside the corresponding image:
 
 ```bash
 python -m benchmarks.libero_pro.manifest \
-  --image REGISTRY/heart-libero-pro@sha256:DIGEST \
+  --image REGISTRY/roborsi-libero-pro@sha256:DIGEST \
   --profile migration_subset \
   --output /output/libero_pro/manifest.json
 
 python -m benchmarks.libero_lilo.manifest \
-  --image REGISTRY/heart-libero-lilo@sha256:DIGEST \
+  --image REGISTRY/roborsi-libero-lilo@sha256:DIGEST \
   --benchmark libero_long_plus_plus --profile migration_subset \
   --output /output/libero_long_plus_plus/manifest.json
 
 python -m benchmarks.libero_lilo.manifest \
-  --image REGISTRY/heart-libero-lilo@sha256:DIGEST \
+  --image REGISTRY/roborsi-libero-lilo@sha256:DIGEST \
   --benchmark libero_ultra_long --profile migration_subset \
   --output /output/libero_ultra_long/manifest.json
 ```
@@ -195,8 +195,8 @@ python scripts/libero_three/prepare_context.py \
   --destination ../work/libero_three/pro-icl
 ```
 
-In source mode, set `HEART_LIBERO_LONGPP_ICL_ROOT`,
-`HEART_LIBERO_ULTRA_ICL_ROOT`, and `HEART_LIBERO_PRO_ICL_ROOT` to the
+In source mode, set `ROBORSI_LIBERO_LONGPP_ICL_ROOT`,
+`ROBORSI_LIBERO_ULTRA_ICL_ROOT`, and `ROBORSI_LIBERO_PRO_ICL_ROOT` to the
 corresponding external `packages/` directories. The portable Agent image below
 sets those variables to its embedded, digest-verified copies. All three
 repository presets use max reasoning effort, explicitly disable VLA and SAM3,
@@ -220,7 +220,7 @@ inheritance-only parents.
 Export and install a relocatable Agent bundle, for example:
 
 ```bash
-python -m heart_runtime.agents.package \
+python -m roborsi.agents.package \
   --config configs/agents/libero_three/long_plus_plus_v13.yaml \
   --name libero_long_plus_plus_v13 \
   --output /tmp/libero-longpp-agent-build
@@ -229,7 +229,7 @@ python -m pip install /tmp/libero-longpp-agent-build/dist/*.whl
 ```
 
 Outside the checkout select `bundle:libero_long_plus_plus_v13`. The wheel
-declares `heart-runtime[runtime]` and `tokenizers==0.22.2`. ICL payloads remain
+declares `roborsi[runtime]` and `tokenizers==0.22.2`. ICL payloads remain
 outside the small wheel: source mode selects an external sealed tree, while the
 portable Agent image copies the same verified tree into the image.
 
@@ -252,21 +252,21 @@ Export all three bundles with the in-image tokenizer identity. Use fresh output
 directories and then build all three wheels into `dist/agent/`:
 
 ```bash
-python -m heart_runtime.agents.package \
+python -m roborsi.agents.package \
   --config configs/agents/libero_three/long_plus_plus_v13.yaml \
   --name libero_long_plus_plus_v13 \
-  --set 'runtime.context.tokenizer_file="/opt/heart-agent-assets/tokenizer.json"' \
+  --set 'runtime.context.tokenizer_file="/opt/roborsi-agent-assets/tokenizer.json"' \
   --set 'runtime.context.tokenizer_sha256="0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"' \
   --output ../work/libero_three/agent-bundle-longpp
-python -m heart_runtime.agents.package \
+python -m roborsi.agents.package \
   --config configs/agents/libero_three/ultra_long_v13.yaml \
   --name libero_ultra_long_v13 \
-  --set 'runtime.context.tokenizer_file="/opt/heart-agent-assets/tokenizer.json"' \
+  --set 'runtime.context.tokenizer_file="/opt/roborsi-agent-assets/tokenizer.json"' \
   --set 'runtime.context.tokenizer_sha256="0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"' \
   --output ../work/libero_three/agent-bundle-ultra
-python -m heart_runtime.agents.package \
+python -m roborsi.agents.package \
   --config configs/agents/libero_three/pro.yaml --name libero_pro \
-  --set 'runtime.context.tokenizer_file="/opt/heart-agent-assets/tokenizer.json"' \
+  --set 'runtime.context.tokenizer_file="/opt/roborsi-agent-assets/tokenizer.json"' \
   --set 'runtime.context.tokenizer_sha256="0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"' \
   --output ../work/libero_three/agent-bundle-pro
 python -m build --wheel --outdir dist/agent ../work/libero_three/agent-bundle-longpp
@@ -274,15 +274,15 @@ python -m build --wheel --outdir dist/agent ../work/libero_three/agent-bundle-ul
 python -m build --wheel --outdir dist/agent ../work/libero_three/agent-bundle-pro
 ```
 
-Build a local HEART wheel and use it only to resolve a complete hash-locked
+Build a local RoboRSI wheel and use it only to resolve a complete hash-locked
 Python 3.11 dependency file, as described in `agents/python/README.md`. Then:
 
 ```bash
 docker build --target libero_three -f agents/python/Dockerfile \
   --build-arg AGENT_REQUIREMENTS=dist/agent/requirements.txt \
-  --build-arg 'AGENT_WHEEL=dist/agent/heart_agent_bundle_libero_*.whl' \
+  --build-arg 'AGENT_WHEEL=dist/agent/roborsi_agent_bundle_libero_*.whl' \
   --build-arg LIBERO_THREE_ASSETS=dist/agent/libero-three-assets \
-  -t REGISTRY/heart-libero-three-agent:REVISION .
+  -t REGISTRY/roborsi-libero-three-agent:REVISION .
 ```
 
 The final Docker stage reruns the package maps, counts and content digests and
@@ -372,7 +372,7 @@ Ultra-Long or 80 PRO). Repeating `--task` selects smoke cases without creating a
 second task-list config. The subset runner keeps per-case logs and writes one
 `summary.json` with success rate and mean native score; any invalid terminal
 makes the command fail. It uses the same standalone Benchmark service and
-canonical `heart_action` Agent path for all three benchmarks. Preflight and the
+canonical `roborsi_action` Agent path for all three benchmarks. Preflight and the
 runner reject host configs that enable VLA, SAM3 or local model services.
 
 ## One-command preflight and evaluation
@@ -385,7 +385,7 @@ python scripts/libero_three/run.py \
   --benchmark libero_long_plus_plus \
   --registry-root ../work/libero_three/registry \
   --agent-config bundle:libero_long_plus_plus_v13 \
-  --agent-image REGISTRY/heart-libero-three-agent@sha256:DIGEST \
+  --agent-image REGISTRY/roborsi-libero-three-agent@sha256:DIGEST \
   --agent-credential-env OPENAI_API_KEY \
   --agent-credential-env OPENAI_BASE_URL \
   --results-root ../work/libero_three/results \
@@ -415,7 +415,7 @@ Keep downloaded/copied assets, generated inputs, caches and outputs outside the
 checkout, for example below the sibling `../work/libero_three/` directory. Each
 case contains:
 
-- `result.json`: HEART status, 1× native score and pinned provenance;
+- `result.json`: RoboRSI status, 1× native score and pinned provenance;
 - `native/score.json`: 1× snapshot plus cumulative diagnostics;
 - `native/episode.mp4`: streamed camera evidence when frames are available;
 - `media/`: content-addressed observations returned to the Agent;
@@ -440,7 +440,9 @@ but is not the sole gate because model services can be nondeterministic.
 - Rebuild the image and regenerate its manifest after any adapter or scorer
   change. Source-digest verification rejects undeclared runtime files.
 
-The pullable ms-sc-01 images are:
+The published ms-sc-01 images below record the historical delivery. Their digests
+stay unchanged. Rebuild images and manifests for current RoboRSI interfaces and
+``/roborsi/`` mounts before running the current source.
 
 | Role | Immutable image |
 | --- | --- |
