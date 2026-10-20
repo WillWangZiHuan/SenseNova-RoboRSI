@@ -43,7 +43,16 @@ docker pull "$PRO_IMAGE"
 
 Schedulers that accept only one image per job can use the composition recipe
 in [`benchmarks/libero_three_combined/`](../benchmarks/libero_three_combined/README.md).
-Long++ and Ultra-Long share one LiLo+Agent image; PRO uses one PRO+Agent image.
+Use the published immutable images directly:
+
+```bash
+export LONGPP_COMBINED_IMAGE='ghcr.io/opensensenova/sensenova-roborsi-libero-long-plus-plus@sha256:4463b6a247617a51653e1b170cc1cbcbae1a2c773a06f21afdf8626aea5a11c9'
+export ULTRA_COMBINED_IMAGE='ghcr.io/opensensenova/sensenova-roborsi-libero-ultra-long@sha256:4463b6a247617a51653e1b170cc1cbcbae1a2c773a06f21afdf8626aea5a11c9'
+export PRO_COMBINED_IMAGE='ghcr.io/opensensenova/sensenova-roborsi-libero-pro@sha256:fd84be8ca67100624dac4a3ddf0de06e74e46c5d1d1b7c8088e6e0713fe70e29'
+```
+
+Long++ and Ultra-Long have separate GHCR packages but share identical
+LiLo+Agent image content; PRO uses a PRO+Agent image.
 The image contains the Benchmark, Agent bundles, ICL and tokenizer. Runtime
 inputs are limited to the model endpoint, a read-only API-key file and a
 writable results directory. This mode has weaker isolation than the canonical
@@ -55,7 +64,7 @@ Run the fixed subsets by overriding the entrypoint:
 docker run --rm --gpus all \
   --entrypoint /opt/roborsi/scripts/libero_three/run_combined_subset.py \
   -v /path/to/model_api.key:/run/secrets/model_api.key:ro \
-  -v "$RUN_ROOT/results:/results" COMBINED_IMAGE \
+  -v "$RUN_ROOT/results:/results" "$LONGPP_COMBINED_IMAGE" \
   --benchmark libero_long_plus_plus --run-id longpp-subset \
   --results-root /results/longpp-subset --max-concurrent 16 --gpu-count 1 \
   --api-key-file /run/secrets/model_api.key \
