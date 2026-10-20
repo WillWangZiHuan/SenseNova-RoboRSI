@@ -57,43 +57,24 @@ different from the full reference even though the Agent condition is aligned.
 
 ## Delivery results and evidence
 
-All rows below used the real model and simulator at the official 1x boundary,
-without `plus9_on_failure`. Long++ and Ultra-Long match the current no-tool/max
-preset. The aligned PRO full reference completed 786/800 cases (98.25%); the
-fixed-state-3 80-case migration subset has not yet been rerun under this exact
-condition and therefore has no reported score here.
+The fixed 12/9/80 image run used the real model and simulator at the official 1x
+boundary, without `plus9_on_failure`. The closest historical references and the
+single-image results are:
 
-| Benchmark / condition | Cases | Success | Mean native score | Internal evidence below `../work/libero_three/` |
-| --- | ---: | ---: | ---: | --- |
-| Long++ v13, state 1, first pass | 12 x 1 | 9/12 | 0.9375 | `source-repro-v3/libero_long_plus_plus/summary.json` |
-| Long++ v13, diagnostic aggregate | 12 x 1 | 12/12 | 1.0000 | `source-longpp-best-valid-v1/summary.json` |
-| Ultra-Long v13, state 1, clean pass | 9 x 1 | 8/9 | 0.9583 | `source-v13-compat-geom-full-r3/summary.json` |
+| Benchmark | Historical reference | Image first pass | Image after infrastructure retries | Final difference |
+| --- | ---: | ---: | ---: | ---: |
+| Long++ | 12/12 | 11/12 | 11/12 | -1 |
+| Ultra-Long | 8/9 | 7/9 | 8/9 | 0 |
+| PRO | 78/80 | 74/80 | 79/80 | +1 |
+| **Total** | **98/101** | **92/101** | **98/101** | **0** |
 
-The frozen subset references are 12/12 Long++ and 8/9 Ultra-Long. The aligned
-PRO number above is a full-set reference, not a result for this repository's
-80-case subset. The
-upstream [LiLo-VLA](https://github.com/YY-GX/LiLo-VLA),
-[LIBERO](https://github.com/Lifelong-Robot-Learning/LIBERO), and
-[LIBERO-PRO](https://github.com/RLinf/LIBERO-PRO) projects do not publish scores
-under this exact subset, Agent and budget combination; no unmatched public
-number is guessed or ranked here.
-
-Representative success/failure case directories are `t00-i01` / `t02-i01`
-under `source-repro-v3/libero_long_plus_plus/cases/`, `t00-i01` / `t01-i01`
-under `source-v13-compat-geom-full-r3/cases/`, and
-`libero_10_swap-t00-i03` / `libero_10_swap-t06-i03` under
-`source-pro-combined-v1/cases/`. Each retains `result.json`, native score and
-video, Runner trace, full Agent trace and redacted effective configuration. The
-aggregate-directory symlinks are convenience indexes; their targets own the
-evidence files.
-
-Observed first-pass wall-clock spans were about 27 minutes for Long++, 80
-minutes for Ultra-Long and 2.3 hours for PRO under the recorded concurrency.
-The traces contain 496/969/1923 model requests, about 8.0M/92.3M/41.6M input
-tokens (including tokens later served from cache), and 159k/231k/147k output
-tokens respectively. The internal endpoint has no delivery pricing, so a
-currency cost cannot be stated; apply the selected endpoint's input, output and
-cache rates to these counters.
+The final success count matches the closest historical references and each
+Benchmark differs by at most one case. First-pass reliability did not match:
+the image run had 94/101 legal native terminals, improving to 100/101 after
+retrying only infrastructure/Agent errors. One PRO case remained without a
+legal terminal. See the [concise validation note](libero-three-subset-validation.md)
+for the comparison boundary; this is not a claim of deterministic per-case
+reproduction.
 
 ## Inputs
 
@@ -158,7 +139,7 @@ python -m benchmarks.libero_lilo.manifest \
 
 The PRO asset command seals only `bddl_files/` and `init_files/`, requires the
 full-evaluation directory SHA-256
-`381f91eec4ec26bc2a0bd06e32da8713f56367c5431d7a8cfa74d69439b57be9`,
+`04ae2020acf89315108a68743f99f8fe9c4cb9fc47e67712298a25a7179d616a`,
 and stages the verified snapshot as `evaluation-assets/` in the PRO build
 context. The Dockerfile verifies the same digest and embeds it at
 `/opt/libero-pro-evaluation`. Both images materialize LIBERO's mutable path file
@@ -314,7 +295,7 @@ The intended portable AFS layout is:
 
 ```text
 newrpent/
-├── NewRPent/                 # this Git checkout only
+├── RoboRSI/                  # this Git checkout only
 └── work/libero_three/        # private host config, ICL packages, runtimes, logs/results
 ```
 

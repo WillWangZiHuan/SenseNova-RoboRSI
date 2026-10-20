@@ -33,6 +33,28 @@ docker pull "$LILO_IMAGE"
 docker pull "$PRO_IMAGE"
 ```
 
+## 单镜像部署
+
+只能为每个作业指定一个镜像的调度平台，可使用
+[`benchmarks/libero_three_combined/`](../benchmarks/libero_three_combined/README.md)
+中的合成配方。Long++ 和 Ultra-Long 共用一个 LiLo+Agent 镜像，PRO 使用一个
+PRO+Agent 镜像。镜像内包含 Benchmark、Agent bundle、ICL 和 tokenizer；运行时只需
+模型 endpoint、只读 API key 文件和可写结果目录。由于凭证和 Benchmark 同容器，该模式
+隔离性弱于标准双容器部署。
+
+覆盖 entrypoint 即可执行固定子集：
+
+```bash
+docker run --rm --gpus all \
+  --entrypoint /opt/roborsi/scripts/libero_three/run_combined_subset.py \
+  -v /path/to/model_api.key:/run/secrets/model_api.key:ro \
+  -v "$RUN_ROOT/results:/results" COMBINED_IMAGE \
+  --benchmark libero_long_plus_plus --run-id longpp-subset \
+  --results-root /results/longpp-subset --max-concurrent 16 --gpu-count 1 \
+  --api-key-file /run/secrets/model_api.key \
+  --base-url https://your-responses-endpoint.example/v1
+```
+
 Long++ 和 Ultra-Long 共用 `LILO_IMAGE`，由 manifest 选择服务；PRO 使用
 `PRO_IMAGE`。三者共用 `AGENT_IMAGE`，每次评测选择其中一个已安装 bundle。
 

@@ -40,35 +40,20 @@ Agent 条件已经对齐，测试范围仍不同于全量参考。
 
 ## 交付状态与实测证据
 
-以下均使用真实模型和模拟器，并遵守官方 1× 步数边界，没有启用
-`plus9_on_failure`。Long++ 和 Ultra-Long 与当前 no-tool/max preset 一致。相同 Agent
-条件下的 PRO 全量参考为 786/800（98.25%）；固定 state 3 的 80 例迁移子集尚未按该条件
-重测，因此这里不报告其分数。
+固定 12/9/80 镜像复测使用真实模型与模拟器，遵守官方 1× 边界，没有启用
+`plus9_on_failure`。与最接近历史条件的结果直接对比如下：
 
-| Benchmark / 条件 | 实际例数 | success | 平均原生分数 | 内部证据（相对 `../work/libero_three/`） |
-| --- | ---: | ---: | ---: | --- |
-| Long++ v13，state 1，首轮 | 12 × 1 | 9/12 | 0.9375 | `source-repro-v3/libero_long_plus_plus/summary.json` |
-| Long++ v13，诊断聚合 | 12 × 1 | 12/12 | 1.0000 | `source-longpp-best-valid-v1/summary.json` |
-| Ultra-Long v13，state 1，干净 pass | 9 × 1 | 8/9 | 0.9583 | `source-v13-compat-geom-full-r3/summary.json` |
+| Benchmark | 历史参考 | 镜像首轮 | 仅重试异常后 | 最终差值 |
+| --- | ---: | ---: | ---: | ---: |
+| Long++ | 12/12 | 11/12 | 11/12 | -1 |
+| Ultra-Long | 8/9 | 7/9 | 8/9 | 0 |
+| PRO | 78/80 | 74/80 | 79/80 | +1 |
+| **合计** | **98/101** | **92/101** | **98/101** | **0** |
 
-冻结的子集对照为 Long++ v13 12/12、Ultra-Long v13 8/9。上述 PRO 数字是全量参考，
-不是本仓库 80 例子集的结果。上游 [LiLo-VLA](https://github.com/YY-GX/LiLo-VLA)、
-[LIBERO](https://github.com/Lifelong-Robot-Learning/LIBERO) 和
-[LIBERO-PRO](https://github.com/RLinf/LIBERO-PRO) 没有公开与这三个固定迁移子集、Agent
-和预算完全相同的成绩，因此不补猜其他方法数值，也不做跨条件排名。
-
-代表性成功/失败案例的完整目录分别是：Long++ `source-repro-v3/libero_long_plus_plus/cases/`
-下的 `t00-i01` / `t02-i01`，Ultra-Long `source-v13-compat-geom-full-r3/cases/` 下的
-`t00-i01` / `t01-i01`，PRO `source-pro-combined-v1/cases/` 下的
-`libero_10_swap-t00-i03` / `libero_10_swap-t06-i03`。每个目录保留 `result.json`、
-`native/score.json`、episode 视频、Runner trace、Agent full trace 和去凭证后的配置；聚合目录
-中的符号链接只用于汇总，权威文件位于链接目标。
-
-首轮产物的时间戳跨度约为 Long++ 27 分钟、Ultra-Long 80 分钟、PRO 2.3 小时；这是
-当时并发运行的实测墙钟时间，不是单卡串行保证值。相应 trace 记录了 496、969、1923
-次模型请求；输入 token（包含后来从 cache 命中的部分）约为 8.0M、92.3M、41.6M，输出
-token 约为 159k、231k、147k。内部 TokenHub 没有随交付提供可结算单价，无法诚实换算
-货币成本；接收方应按实际 endpoint 的 input/output/cache 单价计算。
+最终成功点数与历史参考一致，每个 benchmark 最多相差 1 点，任务能力基本接近。首轮
+稳定性没有完全复现：镜像首轮 94/101 个合法原生终态，仅重试 Agent/基础设施异常后为
+100/101，仍有 1 个 PRO case 无合法终态。比较边界见
+[简要验证记录](libero-three-subset-validation.zh-CN.md)；这里不宣称逐 case 确定性复现。
 
 ## 两种运行边界
 
@@ -84,7 +69,7 @@ CPU 软件渲染也已验证可运行，但明显更慢。模型权重、endpoin
 
 ```text
 newrpent/
-├── NewRPent/                 # 纯 Git 仓库
+├── RoboRSI/                  # 纯 Git 仓库
 └── work/libero_three/        # 私有配置、ICL、运行环境、日志和结果
 ```
 
@@ -93,7 +78,7 @@ newrpent/
 
 在能挂载同一 AFS 的其他机器上，运行所需信息由两部分组成：
 
-1. `NewRPent/` 仓库；
+1. `RoboRSI/` 仓库；
 2. 仓库外的一份 `source-runtime.afs.json` 私有主机配置。
 
 主机配置必须完整指向以下依赖；无需再猜测隐含路径：
@@ -325,7 +310,7 @@ benchmark 和模拟器，不能含 Agent SDK、模型凭证或对话状态。Age
 只在独立 Agent 镜像中。当前条件不需要 Pi0.5/SAM3。
 
 准备器仅密封 `bddl_files/` 与 `init_files/`，固定目录 SHA-256 为
-`381f91eec4ec26bc2a0bd06e32da8713f56367c5431d7a8cfa74d69439b57be9`，并把核验后的
+`04ae2020acf89315108a68743f99f8fe9c4cb9fc47e67712298a25a7179d616a`，并把核验后的
 snapshot 作为 `evaluation-assets/` 放入 PRO 构建上下文。Dockerfile 在提交镜像层前再次
 核对同一摘要，并将其固定在 `/opt/libero-pro-evaluation`。两个镜像都会在可写 `/tmp`
 中生成 LIBERO 路径配置，避免只读容器启动时写源码目录，也避免 PRO 回退到不完整的内置

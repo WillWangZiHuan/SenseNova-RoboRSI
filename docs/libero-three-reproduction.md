@@ -39,6 +39,29 @@ docker pull "$LILO_IMAGE"
 docker pull "$PRO_IMAGE"
 ```
 
+## Single-image deployment
+
+Schedulers that accept only one image per job can use the composition recipe
+in [`benchmarks/libero_three_combined/`](../benchmarks/libero_three_combined/README.md).
+Long++ and Ultra-Long share one LiLo+Agent image; PRO uses one PRO+Agent image.
+The image contains the Benchmark, Agent bundles, ICL and tokenizer. Runtime
+inputs are limited to the model endpoint, a read-only API-key file and a
+writable results directory. This mode has weaker isolation than the canonical
+two-container deployment because the credential and Benchmark share a container.
+
+Run the fixed subsets by overriding the entrypoint:
+
+```bash
+docker run --rm --gpus all \
+  --entrypoint /opt/roborsi/scripts/libero_three/run_combined_subset.py \
+  -v /path/to/model_api.key:/run/secrets/model_api.key:ro \
+  -v "$RUN_ROOT/results:/results" COMBINED_IMAGE \
+  --benchmark libero_long_plus_plus --run-id longpp-subset \
+  --results-root /results/longpp-subset --max-concurrent 16 --gpu-count 1 \
+  --api-key-file /run/secrets/model_api.key \
+  --base-url https://your-responses-endpoint.example/v1
+```
+
 Long++ and Ultra-Long share `LILO_IMAGE`; select the service through the
 manifest. PRO uses `PRO_IMAGE`. All three use the same `AGENT_IMAGE`, selecting
 one installed bundle per evaluation.
