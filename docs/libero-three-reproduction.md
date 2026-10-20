@@ -62,9 +62,10 @@ Run the fixed subsets by overriding the entrypoint:
 
 ```bash
 docker run --rm --gpus all \
-  --entrypoint /opt/roborsi/scripts/libero_three/run_combined_subset.py \
+  --entrypoint python \
   -v /path/to/model_api.key:/run/secrets/model_api.key:ro \
   -v "$RUN_ROOT/results:/results" "$LONGPP_COMBINED_IMAGE" \
+  -B /opt/roborsi/scripts/libero_three/run_combined_subset.py \
   --benchmark libero_long_plus_plus --run-id longpp-subset \
   --results-root /results/longpp-subset --max-concurrent 16 --gpu-count 1 \
   --api-key-file /run/secrets/model_api.key \

@@ -51,8 +51,10 @@ docker run --rm --gpus all \
   --base-url https://your-responses-endpoint.example/v1
 ```
 
-For the fixed 12/9/80 subsets, override the entrypoint with
-`/opt/roborsi/scripts/libero_three/run_combined_subset.py`. The runner defaults
-to 16 concurrent cases and one shared GPU, preserves every attempt, reuses only
-cases with a native `success` or `task_failure`, and exits nonzero while any case
-lacks a legal terminal result.
+For the fixed 12/9/80 subsets, use `--entrypoint python` and pass
+`-B /opt/roborsi/scripts/libero_three/run_combined_subset.py` immediately after
+the image reference. The runner defaults to 16 concurrent cases and one shared
+GPU. It preserves every attempt and reuses a result only after matching the
+image/code, Agent, ICL, model endpoint and timeout fingerprint, the previous
+zero process exit, task/seed identity, and the native score file digest. It
+exits nonzero while any case lacks a verified native terminal result.
