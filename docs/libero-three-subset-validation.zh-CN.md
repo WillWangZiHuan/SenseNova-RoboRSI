@@ -1,5 +1,9 @@
 # 三套 LIBERO 子集简要验证记录
 
+以下记录保留自[上游 PR 93](https://github.com/SenseTime-FVG/RoboRSI/pull/93)，描述该 PR 的历史验收与镜像条件；本次迁移未重新执行这些实验。当前接口见[评测指南](libero-three-benchmarks.zh-CN.md)。
+
+[English](libero-three-subset-validation.md)
+
 单镜像复测覆盖 Long++ state 1（12 例）、Ultra-Long state 1（9 例）和 PRO
 state 3（80 例），使用 1 张 GPU、并发 16、GPT-6 Astra max reasoning、锁定的
 ICL/tokenizer，不使用 VLA 或 SAM3，并遵守官方 1× 物理步数边界。

@@ -27,6 +27,8 @@
 
 - **2026-10-21** — Added **benchmark images and ICL experience packages** to [BenchZoo](#benchzoo), including image references and package download links.
 
+- **2026-10-21** — Specialized **LIBERO-PRO, Long++ and Ultra-Long** Agents, sealed ICL verification and single-image deployment are released. See the [benchmark guide](docs/libero-three-benchmarks.md) and [deployment steps](docs/libero-three-reproduction.md).
+
 - **2026-10-20** — Initial code and usage guides for [**BEHAVIOR-1K**](benchmarks/behavior_1k/README.md), [**Bench2Dex**](benchmarks/bench2dex/README.md) and [**DexJoCo**](benchmarks/dexjoco/README.md) are available in this branch.
 
 - **2026-10-16** — Initial code and usage guides for [**LIBERO**](benchmarks/libero/README.md), [**LIBERO-PRO**](benchmarks/libero_pro/README.md), [**LIBERO-Long++**](benchmarks/libero_lilo/README.md) and [**LIBERO-Ultra-Long**](benchmarks/libero_lilo/README.md) are available in this branch. See the [getting started guide](docs/getting-started.md).
@@ -108,6 +110,7 @@ simulator installation.
   [Bench2Dex](benchmarks/bench2dex/README.md),
   [DexJoCo](benchmarks/dexjoco/README.md), and
   [BEHAVIOR-1K](benchmarks/behavior_1k/README.md).
+- **Three-LIBERO Agents and images:** [Contracts](docs/libero-three-benchmarks.md) and [deployment](docs/libero-three-reproduction.md).
 - **Agent configuration:** [Models, prompts, context and budgets](docs/agents.md).
 - **Evaluation:** [Batch execution, results and resume](docs/evaluation.md).
 
@@ -116,6 +119,10 @@ simulator installation.
 Available benchmark integrations and upcoming releases. Supported services share
 configurable EmbodiedAgent presets; select your model and follow the corresponding
 benchmark directory for setup and evaluation.
+
+LIBERO-PRO, Long++ and Ultra-Long also provide specialized task-bound ICL
+Agents. See the [three-LIBERO guide](docs/libero-three-benchmarks.md) for their
+Agent presets and image deployment.
 
 ICL experience packages are hosted in
 [SenseNova-RoboRSI-Packages](https://huggingface.co/datasets/sensenova/SenseNova-RoboRSI-Packages).

@@ -6,6 +6,11 @@ An Agent receives the task, current observation and action schema. It returns
 actions; the benchmark owns environment stepping, stopping and scoring. The
 same Agent preset can target each supported benchmark service.
 
+The [three-LIBERO guide](libero-three-benchmarks.md) describes specialized ICL
+presets for PRO, Long++ and Ultra-Long. Their portable images include verified
+context packages and tokenizer assets; see [deployment](libero-three-reproduction.md)
+for source builds and `bundle:` evaluation.
+
 ## Select a preset
 
 | File under `configs/agents/embodied/` | Planner | Configuration |

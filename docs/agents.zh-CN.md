@@ -5,6 +5,10 @@
 Agent 接收任务、当前观测和动作 schema，并返回动作。Benchmark 负责环境推进、
 停止和评分。同一份通用 Agent 配置可用于各个受支持的 benchmark 服务。
 
+[三套 LIBERO 指南](libero-three-benchmarks.zh-CN.md)介绍 PRO、Long++ 与 Ultra-Long
+的专用 ICL 预设。可移植镜像包含已验证的 context package 和 tokenizer，源码构建与
+`bundle:` 评测方式见[部署指南](libero-three-reproduction.zh-CN.md)。
+
 ## 选择配置
 
 | `configs/agents/embodied/` 中的文件 | Planner | 配置内容 |

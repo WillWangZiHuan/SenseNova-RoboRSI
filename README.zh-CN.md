@@ -27,6 +27,8 @@
 
 - **2026-10-21** — 已在 [BenchZoo](#benchzoo) 中补充 **benchmark 镜像与 ICL 经验包**，提供镜像地址和资源包下载链接。
 
+- **2026-10-21** — **LIBERO-PRO、Long++ 与 Ultra-Long** 专用 Agent、sealed ICL 校验和单镜像部署已开源，详见[评测指南](docs/libero-three-benchmarks.zh-CN.md)与[部署步骤](docs/libero-three-reproduction.zh-CN.md)。
+
 - **2026-10-20** — 本分支已提供 [**BEHAVIOR-1K**](benchmarks/behavior_1k/README.zh-CN.md)、[**Bench2Dex**](benchmarks/bench2dex/README.zh-CN.md) 和 [**DexJoCo**](benchmarks/dexjoco/README.zh-CN.md) 的首批代码与使用指南。
 
 - **2026-10-16** — 本分支已提供 [**LIBERO**](benchmarks/libero/README.md)、[**LIBERO-PRO**](benchmarks/libero_pro/README.md)、[**LIBERO-Long++**](benchmarks/libero_lilo/README.md) 和 [**LIBERO-Ultra-Long**](benchmarks/libero_lilo/README.md) 的首批代码与使用指南，详见[快速开始](docs/getting-started.zh-CN.md)。
@@ -97,6 +99,7 @@ Windows 使用 `.venv\Scripts\Activate.ps1` 激活环境。
   [Bench2Dex](benchmarks/bench2dex/README.zh-CN.md)、
   [DexJoCo](benchmarks/dexjoco/README.zh-CN.md) 和
   [BEHAVIOR-1K](benchmarks/behavior_1k/README.zh-CN.md)。
+- **三套 LIBERO Agent 与镜像：** [评测契约](docs/libero-three-benchmarks.zh-CN.md)与[部署](docs/libero-three-reproduction.zh-CN.md)。
 - **Agent 配置：** [模型、提示词、上下文与预算](docs/agents.zh-CN.md)。
 - **评测：** [批量执行、结果查看与中断恢复](docs/evaluation.zh-CN.md)。
 
@@ -104,6 +107,9 @@ Windows 使用 `.venv\Scripts\Activate.ps1` 激活环境。
 
 列出已提供的 benchmark 接入与即将开源的内容。已支持的服务共用可配置的 EmbodiedAgent
 预设；选择模型后，按对应评测目录完成环境准备与评测。
+
+LIBERO-PRO、Long++ 与 Ultra-Long 还提供按任务绑定的专用 ICL Agent。对应预设与
+镜像部署见[三套 LIBERO 指南](docs/libero-three-benchmarks.zh-CN.md)。
 
 ICL 经验包统一托管在
 [SenseNova-RoboRSI-Packages](https://huggingface.co/datasets/sensenova/SenseNova-RoboRSI-Packages)。

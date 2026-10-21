@@ -67,7 +67,10 @@ run fewer cases. Use `libero_ultra_long` to select the other family. The
 `hold_agent.py` factory also accepts both names for transport checks.
 
 `--plus9-on-failure` is an explicitly named diagnostic that continues failed
-1x episodes; it never changes the recorded 1x score. General Agent use is documented in
+1x episodes; it never changes the recorded 1x score. The specialized ICL Agents,
+verified context packages and image deployment are described in the
+[three-LIBERO guide](../../docs/libero-three-benchmarks.md)
+([中文](../../docs/libero-three-benchmarks.zh-CN.md)). General Agent use is documented in
 [English](../../docs/agents.md) and [Chinese](../../docs/agents.zh-CN.md).
 
 See [Evaluation](../../docs/evaluation.md), [tests](../../tests/README.md), and

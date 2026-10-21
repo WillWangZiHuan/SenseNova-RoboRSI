@@ -1,60 +1,77 @@
-# Three-LIBERO single-image deployment
+# Three-LIBERO combined deployment
 
-This deployment wrapper is for schedulers that accept only one container image
-per job. It combines one locked three-LIBERO Agent image with either the LiLo or
-PRO Benchmark image. Long++ and Ultra-Long use the LiLo build; PRO uses the PRO
-build. Each evaluation job therefore starts exactly one image.
+[简体中文](README.zh-CN.md) · [Full deployment guide](../../docs/libero-three-reproduction.md)
 
-The image contains the native Benchmark, all three Agent bundles, sealed ICL
-packages, tokenizer and Python dependencies. It does not contain model weights,
-an API endpoint or credentials. The model API key remains a read-only runtime
-secret and results use a writable runtime mount.
+This image combines one verified three-LIBERO Agent image with either the LiLo
+or PRO Benchmark image. Long++ and Ultra-Long share the LiLo composition. It
+supports schedulers that accept one image per job, with separate Agent and
+native Python package directories inside the image.
 
 ## Published images
 
-The `v1.0.1-egl` images were built from RoboRSI commit
-`5b8c7f7aa6e1b67119ef3e887625601387ce917e` and pulled back from GHCR by digest:
+The following immutable GHCR artifacts were published in upstream PR 93 from
+commit `5b8c7f7aa6e1b67119ef3e887625601387ce917e`. They retain their original
+embedded presets. See the full guide to rebuild the current source and select
+a model ID supported by your endpoint.
 
 ```bash
-LONGPP_IMAGE='ghcr.io/opensensenova/sensenova-roborsi-libero-long-plus-plus@sha256:814139261e914b114cb89a359c6a39d4f409a556f79928e986b6ade3dfe7dc7a'
-ULTRA_IMAGE='ghcr.io/opensensenova/sensenova-roborsi-libero-ultra-long@sha256:814139261e914b114cb89a359c6a39d4f409a556f79928e986b6ade3dfe7dc7a'
-PRO_IMAGE='ghcr.io/opensensenova/sensenova-roborsi-libero-pro@sha256:a83417f1459a4c555c457caa82ef00a5de50191e3d8deb943894fa9285cff172'
+export LONGPP_COMBINED_IMAGE='ghcr.io/opensensenova/sensenova-roborsi-libero-long-plus-plus@sha256:814139261e914b114cb89a359c6a39d4f409a556f79928e986b6ade3dfe7dc7a'
+export ULTRA_COMBINED_IMAGE='ghcr.io/opensensenova/sensenova-roborsi-libero-ultra-long@sha256:814139261e914b114cb89a359c6a39d4f409a556f79928e986b6ade3dfe7dc7a'
+export PRO_COMBINED_IMAGE='ghcr.io/opensensenova/sensenova-roborsi-libero-pro@sha256:a83417f1459a4c555c457caa82ef00a5de50191e3d8deb943894fa9285cff172'
+docker pull "$LONGPP_COMBINED_IMAGE"
+docker pull "$ULTRA_COMBINED_IMAGE"
+docker pull "$PRO_COMBINED_IMAGE"
 ```
 
-Long++ and Ultra-Long have separate Benchmark packages as required by the
-registry convention, but intentionally share identical LiLo-native image
-content. The `egl` suffix records the headless NVIDIA EGL rendering boundary;
-the images do not ship a CUDA toolkit.
+## Run one case
 
-This is a deployment composition, not a replacement for the independently
-attested Benchmark and Agent recipes. Build it from the repository root because
-it overlays the reviewed RoboRSI source and runners:
+Set `RUN_ROOT`, `MODEL_API_KEY_FILE` and `OPENAI_BASE_URL` to your output root,
+private key file and model endpoint. Use a new single-case output directory.
+
+```bash
+mkdir -p "$RUN_ROOT/results"
+docker run --rm --gpus all \
+  --mount "type=bind,src=$MODEL_API_KEY_FILE,dst=/run/secrets/model_api.key,readonly" \
+  --mount "type=bind,src=$RUN_ROOT/results,dst=/results" \
+  "$LONGPP_COMBINED_IMAGE" \
+  --benchmark libero_long_plus_plus --task t00-i01 \
+  --run-id longpp-one --results-root /results/longpp-one \
+  --api-key-file /run/secrets/model_api.key --base-url "$OPENAI_BASE_URL"
+```
+
+The default entrypoint is `run_combined.py`. For the 12/9/80 subsets use
+`--entrypoint python` and pass
+`-B /opt/roborsi/scripts/libero_three/run_combined_subset.py` after the image
+reference. The [full guide](../../docs/libero-three-reproduction.md) includes
+the complete command and verified result-reuse behavior.
+
+## Rebuild
+
+Build the three installed Agent bundles and native Benchmark images using the
+[public-input rebuild steps](../../docs/libero-three-reproduction.md). Set
+`AGENT_IMAGE`, `LILO_IMAGE` and `PRO_IMAGE` to those actual repository digests,
+and choose new combined tags. From the repository root:
 
 ```bash
 docker build -f benchmarks/libero_three_combined/Dockerfile \
-  --build-arg AGENT_IMAGE=repository/agent@sha256:DIGEST \
-  --build-arg BENCHMARK_IMAGE=repository/libero-lilo@sha256:DIGEST \
+  --build-arg AGENT_IMAGE="$AGENT_IMAGE" --build-arg BENCHMARK_IMAGE="$LILO_IMAGE" \
   --build-arg ROBORSI_REVISION="$(git rev-parse HEAD)" \
-  -t roborsi-libero-lilo-combined:local .
+  -t "$NEW_LILO_COMBINED_TAG" .
+docker build -f benchmarks/libero_three_combined/Dockerfile \
+  --build-arg AGENT_IMAGE="$AGENT_IMAGE" --build-arg BENCHMARK_IMAGE="$PRO_IMAGE" \
+  --build-arg ROBORSI_REVISION="$(git rev-parse HEAD)" \
+  -t "$NEW_PRO_COMBINED_TAG" .
+docker push "$NEW_LILO_COMBINED_TAG"
+docker push "$NEW_PRO_COMBINED_TAG"
+docker image inspect "$NEW_LILO_COMBINED_TAG" "$NEW_PRO_COMBINED_TAG" \
+  --format '{{json .RepoDigests}}'
 ```
 
-Use the PRO Benchmark digest to build the PRO image. Run one case with:
+Model credentials are runtime inputs. The combined mode shares a container
+between Agent and Benchmark; use separate images with `bench eval` when each
+case needs an independent Agent filesystem. Preserve the source revision and
+both input digests with the new output digest.
 
-```bash
-docker run --rm --gpus all \
-  -v /path/to/model_api.key:/run/secrets/model_api.key:ro \
-  -v /path/to/results:/results \
-  "$LONGPP_IMAGE" \
-  --benchmark libero_long_plus_plus --task t00-i01 \
-  --run-id longpp-smoke --results-root /results/longpp-smoke \
-  --api-key-file /run/secrets/model_api.key \
-  --base-url https://your-responses-endpoint.example/v1
-```
-
-For the fixed 12/9/80 subsets, use `--entrypoint python` and pass
-`-B /opt/roborsi/scripts/libero_three/run_combined_subset.py` immediately after
-the image reference. The runner defaults to 16 concurrent cases and one shared
-GPU. It preserves every attempt and reuses a result only after matching the
-image/code, Agent, ICL, model endpoint and timeout fingerprint, the previous
-zero process exit, task/seed identity, and the native score file digest. It
-exits nonzero while any case lacks a verified native terminal result.
+[Upstream validation](../../docs/libero-three-subset-validation.md) records
+PR 93's historical real-model runs. This migration has not rebuilt or rerun
+those GPU/model experiments.

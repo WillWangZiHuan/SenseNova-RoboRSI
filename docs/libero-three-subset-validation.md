@@ -1,5 +1,9 @@
 # Three-LIBERO subset validation
 
+The following record is preserved from [upstream PR 93](https://github.com/SenseTime-FVG/RoboRSI/pull/93). It describes that PR's historical acceptance runs and published image conditions; this migration has not rerun them. See the [benchmark guide](libero-three-benchmarks.md) for the current interfaces.
+
+[简体中文](libero-three-subset-validation.zh-CN.md)
+
 The single-image validation ran Long++ state 1 (12 cases), Ultra-Long state 1
 (9 cases), and PRO state 3 (80 cases) with one GPU and 16 concurrent workers.
 All used GPT-6 Astra with max reasoning, the locked ICL/tokenizer, no VLA or

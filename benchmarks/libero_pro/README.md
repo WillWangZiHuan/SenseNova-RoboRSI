@@ -77,6 +77,10 @@ Select task IDs from the manifest and add `--task libero_pro:TASK_ID` to run
 fewer cases. `--plus9-on-failure` is a separate diagnostic that may continue a
 failed 1x episode without changing its recorded 1x score.
 
+For the specialized persistent-memory ICL Agent and its verified image assets,
+see the [three-LIBERO guide](../../docs/libero-three-benchmarks.md) and
+[deployment steps](../../docs/libero-three-reproduction.md).
+
 Use [Agents](../../docs/agents.md) / [Agent 配置](../../docs/agents.zh-CN.md)
 for the public presets and [Evaluation](../../docs/evaluation.md) for outputs.
 Offline adapter checks do not establish native task success. See

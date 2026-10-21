@@ -235,27 +235,27 @@ def _summary(
     benchmark: str, run_id: str, selected: tuple[str, ...], records: dict[str, Any]
 ) -> dict[str, Any]:
     ordered = [records[task] for task in selected]
-    invalid = [
+    valid = [
         record
         for record in ordered
-        if record.get("returncode") != 0 or record.get("status") not in _VALID_TERMINALS
+        if record.get("returncode") == 0 and record.get("status") in _VALID_TERMINALS
     ]
     scores = [
         float(record["score"])
-        for record in ordered
+        for record in valid
         if isinstance(record.get("score"), (int, float))
     ]
-    successes = sum(record.get("success") is True for record in ordered)
+    successes = sum(record.get("success") is True for record in valid)
     return {
         "schema_version": 1,
         "benchmark": benchmark,
         "run_id": run_id,
         "planned": len(selected),
-        "completed": len(selected) - len(invalid),
-        "failed": len(invalid),
+        "completed": len(valid),
+        "failed": len(selected) - len(valid),
         "successes": successes,
         "task_failures": sum(
-            record.get("status") == "task_failure" for record in ordered
+            record.get("status") == "task_failure" for record in valid
         ),
         "success_rate": successes / len(selected) if selected else 0.0,
         "mean_score": sum(scores) / len(scores) if scores else None,

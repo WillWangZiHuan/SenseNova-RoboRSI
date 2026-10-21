@@ -1,7 +1,8 @@
 # Copyright 2026 The HEART Authors.
 # Licensed under the Apache License, Version 2.0 (the "License");
 
-"""Tests for the three-LIBERO source-runtime preflight."""
+
+"""Tests for the three-LIBERO combined delivery and sealed Agent inputs."""
 
 import json
 from hashlib import sha256
@@ -77,6 +78,45 @@ def test_combined_summary_keeps_invalid_attempts_out_of_completed_count() -> Non
     assert summary["successes"] == 1
     assert summary["task_failures"] == 1
     assert summary["mean_score"] == pytest.approx(0.75)
+
+
+@pytest.mark.parametrize(
+    "invalid_record",
+    [
+        {"returncode": 1, "status": "success", "success": True, "score": 1.0},
+        {"returncode": 1, "status": "task_failure", "success": False, "score": 0.9},
+        {"returncode": 0, "status": "agent_error", "success": True, "score": 1.0},
+    ],
+)
+def test_combined_summary_excludes_invalid_attempt_scores(invalid_record) -> None:
+    summary = _combined_summary(
+        "libero_pro",
+        "combined",
+        ("success", "task-failure", "invalid"),
+        {
+            "success": {
+                "returncode": 0,
+                "status": "success",
+                "success": True,
+                "score": 1.0,
+            },
+            "task-failure": {
+                "returncode": 0,
+                "status": "task_failure",
+                "success": False,
+                "score": 0.25,
+            },
+            "invalid": invalid_record,
+        },
+    )
+
+    assert summary["planned"] == 3
+    assert summary["completed"] == 2
+    assert summary["failed"] == 1
+    assert summary["successes"] == 1
+    assert summary["task_failures"] == 1
+    assert summary["success_rate"] == pytest.approx(1 / 3)
+    assert summary["mean_score"] == pytest.approx(0.625)
 
 
 def test_combined_image_uses_only_roborsi_runtime_names() -> None:

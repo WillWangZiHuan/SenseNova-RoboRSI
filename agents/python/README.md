@@ -1,12 +1,13 @@
 # Docker Agent runtime
 
-The Dockerfile provides three stages:
+The Dockerfile provides four stages:
 
 | Stage | Contents |
 | --- | --- |
 | `runtime` | Framework source and the selected hash-locked dependencies |
 | `configured` | Runtime plus an installed Agent bundle wheel; checks dependencies |
 | `example` | Runtime plus the fixed-action LIBERO Agent; default build target |
+| `libero_three` | Three installed LIBERO bundles, sealed ICL packages and locked tokenizer |
 
 The Agent runs separately from the native benchmark. `DockerAgentLauncher`
 creates a container and bridge network per case. Only the Agent workspace is
@@ -105,3 +106,16 @@ Bearer token; do not pass that token to the Agent.
 See [Agents](../../docs/agents.md) / [Agent 配置](../../docs/agents.zh-CN.md),
 [Evaluation](../../docs/evaluation.md) / [评测](../../docs/evaluation.zh-CN.md),
 and [native opt-in tests](../../tests/README.md#libero-cpu-evaluation-check).
+
+## Build the three-LIBERO Agent
+
+Follow the [three-LIBERO deployment guide](../../docs/libero-three-reproduction.md)
+([中文](../../docs/libero-three-reproduction.zh-CN.md)) to extract the public
+image's sealed inputs, verify `assets.lock.json`, export all three bundles and
+resolve one combined dependency lock. The `libero_three` target checks installed
+bundle maps, package inventories and tokenizer identity during the build.
+
+Select `bundle:libero_long_plus_plus_v13`, `bundle:libero_ultra_long_v13` or
+`bundle:libero_pro` with the rebuilt Agent's repository digest. The Agent and
+Benchmark can run in independent containers, or use the
+[combined image recipe](../../benchmarks/libero_three_combined/README.md).

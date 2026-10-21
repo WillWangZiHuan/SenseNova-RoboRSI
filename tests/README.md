@@ -65,7 +65,16 @@ or a skip is not native validation.
 
 PRO, Long++ and Ultra-Long have offline adapter and runtime-export coverage.
 Their native runs require the assets and image prerequisites in their benchmark
-recipes.
+recipes. The separate PR 93 validation record preserves its historical results.
+
+## Three-LIBERO Agents and deployment
+
+The offline tests cover sealed context maps, preset export, token-accurate
+context, feedback primitives and combined-runner result reuse. See the
+[three-LIBERO guide](../docs/libero-three-benchmarks.md) for the evaluation
+contracts and the [deployment guide](../docs/libero-three-reproduction.md) for
+native image runs. The [upstream validation record](../docs/libero-three-subset-validation.md)
+reports historical PR 93 experiments; it is separate from checks run on this checkout.
 
 ## BEHAVIOR-1K checks
 
